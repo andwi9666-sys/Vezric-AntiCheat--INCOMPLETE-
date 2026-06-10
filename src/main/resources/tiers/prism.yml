@@ -1,0 +1,444 @@
+tiers-version: 2
+
+defaults:
+  tier: PRISM
+  enabled: true
+  shadow: false
+  punishVl: 40
+  failWeight: 1.0
+  bufferToFlag: 4
+  decay: 0.15
+  setbackEnabled: true
+  mitigation: moderate
+  cancelOnFlag: true
+  setbackOnFlag: true
+  setbackDelayMs: 5
+  # Player-hit combat checks use combat-mitigation in config.yml (drop hits + punitive setback)
+
+PrismInteractionLegality:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  combatMitigation: true
+  maxReach: 3.1
+  reachMargin: 0.0
+  vanillaExpansion: 0.1
+  cancelMissDistance: 0.10
+  graceThreshold: 0.04
+  cancelOnFlag: true
+  blatantReachOver: 0.35
+  hitboxMinSamples: 8
+  missRatioThreshold: 0.50
+  hitboxViolationsToFlag: 2
+  lagrangeMinConfidence: 1.8
+  # Absorbs: PrismReachA/B/C, PrismHitboxA/B, PrismBackTrack, PrismLagRange
+
+PrismAutoClickD:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 4
+  minWindowSwings: 30
+  minBandOccupancy: 0.72
+  maxExtremeHitRatio: 0.08
+  minTrackedCps: 8.0
+  maxTrackedCps: 15.0
+
+PrismScaffoldA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 4
+  minPerfectStreak: 9
+  maxTimingCv: 0.08
+  maxPitchRange: 4.0
+  maxSpreadMs: 75
+  cancelPlaceOnFlag: false
+  setbackOnFlag: false
+  minStreak: 7
+  maxCv: 0.06
+  maxPitchCv: 6.0
+  maxAverageMs: 175
+  maxSpreadMs: 75
+
+PrismFastBreakA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  toleranceRatio: 0.92
+  absoluteAllowanceMs: 55
+  minExpectedMs: 100
+  bufferToFlag: 2
+
+PrismFastBreakB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  sampleSize: 10
+  minSamples: 5
+  instantBlockMinAvgMs: 80.0
+  bufferToFlag: 2
+
+PrismBlockSight:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  minLookDot: 0.55
+
+PrismAutoClickA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 4
+
+PrismAutoClickB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+
+PrismAutoClickC:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 4
+
+PrismScaffoldB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+
+PrismScaffoldC:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+
+PrismScaffoldD:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+
+PrismScaffoldE:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  supportHistoryMs: 350
+
+PrismInventoryA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  setbackEnabled: true
+  momentumExemptMs: 500
+  openMaxSpeed: 0.30
+  momentumTolerance: 0.03
+  minResidualSpeed: 0.03
+  failVl: 1.0
+
+PrismInventoryB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  setbackEnabled: true
+  maxClicksPerSec: 12.0
+  minSamples: 5
+  bufferToFlag: 2
+  failVl: 1.5
+
+PrismInventoryC:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  setbackEnabled: true
+  gracePeriodMs: 500
+  bufferToFlag: 3
+  failVl: 1.2
+
+PrismBadPacketsA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 5
+  maxAbsPitch: 91.0
+  # Invalid rotation = NaN/infinite or pitch outside vanilla bounds. Yaw is cyclic (unwrapped OK).
+
+PrismBadPacketsB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 6
+  maxDuplicateIntervalMs: 3
+  maxTinyIntervalMs: 8
+  minNoRotationMs: 180
+  swingGraceMs: 350
+  # Duplicate packet burst (ignores rotation-only and post-setback resync).
+
+PrismBadPacketsC:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 4
+  attackFreshnessMs: 150
+  hardSwingDeltaMs: 120
+  lenientSwingDeltaMs: 220
+  # Attack without arm swing; lenient threshold avoids spam-click melee false positives.
+
+PrismBadPacketsD:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Structural bad-packet validation D.
+
+PrismBadPacketsE:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Structural bad-packet validation E.
+
+PrismBadPacketsF:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 5
+  maxStreak: 16
+  minPositionlessMs: 400
+  # Positionless flying streak (requires sustained movement without coordinates).
+
+PrismBadPacketsG:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Structural bad-packet validation G.
+
+PrismBadPacketsH:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Structural bad-packet validation H.
+
+PrismBadPacketsI:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Structural bad-packet validation I.
+
+PrismBadPacketsJ:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Structural bad-packet validation J.
+
+PrismBadPacketsK:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Structural bad-packet validation K.
+
+PrismBadPacketsL:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Structural bad-packet validation L.
+
+PrismBadPacketsM:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Structural bad-packet validation M.
+
+PrismNoRotationA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Stale look + off-FOV attack.
+
+PrismNoRotationB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Impossible angle + stale rotation.
+
+PrismNoRotationC:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Attack outside transaction ack window.
+
+PrismRotationRay:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Eye-ray vs attack vector at packet yaw.
+
+PrismReachA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Rewind reach primary.
+
+PrismReachB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Rewind reach corroboration.
+
+PrismReachC:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Impossible-hit cancel pipeline.
+
+PrismHitboxA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Ray miss despite hit A.
+
+PrismHitboxB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Ray miss despite hit B.
+
+PrismBackTrack:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Entity snapshot age vs attack.
+
+PrismLagRange:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Outbound position staleness.
+
+PrismTransactionA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # C0F transaction abuse A.
+
+PrismTransactionB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 4
+  burstThreshold: 8
+  # Vanilla confirm burst after silence (ignores injected transaction acks).
+
+PrismSetbackAccept:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 4
+  graceMs: 350
+  acceptDistance: 1.0
+  rejectDistance: 2.5
+  # Ignored S08 setback accept (requires large distance after grace).
+
+PrismInteractReach:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Structural interact distance.
+
+PrismPacketOrderA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Tick/input/interact ordering A.
+
+PrismPacketOrderB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Tick/input/interact ordering B.
+
+PrismPacketOrderC:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Tick/input/interact ordering C.
+
+PrismPacketOrderD:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Tick/input/interact ordering D.
+
+PrismMultiActionsA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Multi-action packet abuse A.
+
+PrismMultiActionsB:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Multi-action packet abuse B.
+
+PrismMultiActionsC:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Multi-action packet abuse C.
+
+PrismMultiActionsD:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Multi-action packet abuse D.
+
+PrismMultiActionsE:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Multi-action packet abuse E.
+
+PrismMultiActionsF:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Multi-action packet abuse F.
+
+PrismMultiActionsG:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3
+  # Multi-action packet abuse G.

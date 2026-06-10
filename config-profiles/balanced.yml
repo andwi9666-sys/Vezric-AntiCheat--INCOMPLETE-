@@ -1,0 +1,886 @@
+# Balanced profile: mirrors the current production-tuned default configuration.
+prefix: '&6[Watchdog] &r'
+anticheat:
+  enabled: true
+flags:
+  format: '{prefix}&e{player} &7failed &c{check} &7(&fVL {vl}&7)'
+  staff-default-on: true
+messages:
+  no-permission: '{prefix}&cNo permission.'
+  flags-on: '{prefix}&aAlerts enabled.'
+  flags-off: '{prefix}&cAlerts disabled.'
+  enabled: '{prefix}&aWatchdog enabled.'
+  disabled: '{prefix}&cWatchdog disabled.'
+  reload: '{prefix}&aReloaded config.'
+
+lag:
+  enable-gates: true
+  max-ping: 250
+  min-tps: 18.5
+
+knockback-profile:
+  horizontal: 0.4
+  vertical: 0.389
+  vertical-limit: 0.4
+  extra-horizontal: 0.5
+  extra-vertical: 0.1
+
+exempt:
+  teleport-ms: 900
+  velocity-ms: 450
+  blockstate-ms: 350
+  potion-ms: 500
+
+combat-analysis:
+  attack-window-ms: 325
+  rewind-base-ms: 70
+  rewind-ping-factor: 0.25
+  max-rewind-ms: 180
+  trade-window-ms: 450
+  combo-window-ms: 800
+  jump-reset-window-ms: 220
+  blockhit-window-ms: 250
+  walk-through-distance: 1.10
+  packet-burst-ms: 110
+  packet-burst-jitter-ms: 18.0
+  high-jitter-ms: 12.0
+  stale-move-ms: 150
+  stale-rotation-ms: 140
+  stale-swing-ms: 180
+  trade-depth-window-ms: 1200
+  spacing-shift-threshold: 0.28
+  triple-hit-fast-ms: 350
+  triple-hit-delay-ms: 525
+  hit-select:
+    parry-min-ms: 100
+    parry-max-ms: 250
+    quarter-min-ms: 500
+    quarter-max-ms: 1000
+    deep-min-ms: 1000
+
+movement-analysis:
+  packet-burst-ms: 110
+  high-jitter-ms: 12.0
+  jump-window-ms: 220
+  velocity-window-ms: 500
+  combat-window-ms: 400
+  block-place-window-ms: 250
+
+scaffold-analysis:
+  low-move-threshold: 0.05
+
+punish:
+  enabled: true
+  ban-vl: 25
+  mode: CHECK
+  execution:
+    type: BANWAVE
+    auto-banwave:
+      enabled: true
+      interval-seconds: 30
+      min-delay-seconds: 900
+      max-delay-seconds: 7200
+      batch-size: 8
+  evidence:
+    mark-score: 8.0
+    queue-score: 12.0
+    recent-window-seconds: 600
+    multi-check-bonus: 1.75
+    triple-check-bonus: 2.5
+    global-vl: 35
+    global-bonus: 1.5
+    marked-bonus: 1.75
+    fast-flags:
+      count: 6
+      window-seconds: 90
+      bonus: 2.5
+    default: MEDIUM
+    confidence:
+      HIGH:
+        min-check-vl: 5.0
+        score: 4.75
+        max-contribution: 9.5
+      MEDIUM:
+        min-check-vl: 7.5
+        score: 3.0
+        max-contribution: 6.0
+      LOW:
+        min-check-vl: 10.0
+        score: 1.75
+        max-contribution: 3.5
+    categories:
+      REACH: HIGH
+      BACKTRACK: HIGH
+      FLY: HIGH
+      KILLAURA: MEDIUM
+      SCAFFOLD: MEDIUM
+      VELOCITY: MEDIUM
+      SPEED: MEDIUM
+      PHASE: MEDIUM
+      BADPACKETS: MEDIUM
+      AIMASSIST: LOW
+      AUTOCLICK: LOW
+      TIMER: LOW
+      NOROTATION: LOW
+      BLINK: LOW
+      INVENTORY: LOW
+      MISC: MEDIUM
+    overrides:
+      ReachA: HIGH
+      ReachB: HIGH
+      ReachC: MEDIUM
+      BackTrackA: HIGH
+      FlyA: HIGH
+      FlyB: HIGH
+      FlyC: HIGH
+      FlyD: HIGH
+      FlyE: HIGH
+      ScaffoldA: MEDIUM
+      ScaffoldB: MEDIUM
+      ScaffoldC: MEDIUM
+      ScaffoldD: MEDIUM
+      KillAuraA: MEDIUM
+      KillAuraB: MEDIUM
+      KillAuraC: MEDIUM
+      KillAuraD: LOW
+      KillAuraG: MEDIUM
+      AimAssistA: LOW
+      AimAssistB: LOW
+      AimAssistC: LOW
+      AutoClickA: LOW
+      AutoClickB: LOW
+      AutoClickC: LOW
+  ladder:
+    '1':
+      type: TEMP
+      duration: 30d
+    '2':
+      type: TEMP
+      duration: 90d
+    '3':
+      type: TEMP
+      duration: 365d
+    '4':
+      type: PERM
+  watchdog:
+    reason: Cheating through the use of unfair game advantages.
+    appeal-url: https://www.hypixel.net/appeal
+    broadcast: '&cWatchdog has banned {player} for cheating!'
+    remove-message: '&eA player has been removed from your game.'
+  reasons:
+    REACH: Cheating
+    BACKTRACK: Cheating
+    KILLAURA: Cheating
+    VELOCITY: Cheating
+    AUTOCLICK: Cheating
+    AIMASSIST: Cheating
+    CRITICALS: Cheating
+    FLY: Cheating
+    SPEED: Cheating
+    STEP: Cheating
+    NOFALL: Cheating
+    JESUS: Cheating
+    PHASE: Cheating
+    GROUNDSPOOF: Cheating
+    SCAFFOLD: Cheating
+    INVENTORY: Cheating
+    FASTBOW: Cheating
+    FASTEATA: Cheating
+    TIMER: Cheating
+    NOROTATION: Cheating
+    BLINK: Cheating
+    BADPACKETS: Cheating
+    NOSLOW: Cheating
+    PIERCING: Cheating
+    MISC: Cheating
+  commands:
+    tempban: tempban {player} {time} {timeform} {reason}
+    permban: ban {player} {reason}
+
+checks:
+  KillAuraA:
+    enabled: true
+    vl: 1.0
+    timingMaxCV: 0.12
+    timingMaxStd: 14.0
+    maxClickStdMs: 8.0
+  KillAuraB:
+    enabled: true
+    vl: 1.0
+    minDot: 0.65
+    maxAngle: 28.0
+    closeRangeBypass: 1.1
+    rewindBaseMs: 60
+    rewindPingFactor: 0.20
+    maxRewindMs: 140
+    bufferToFlag: 4
+  KillAuraC:
+    enabled: true
+    vl: 1.0
+    minDistance: 1.75
+    minSnapYaw: 22.0
+    maxPitchStep: 20.0
+    maxPostSnapAngle: 3.5
+    historyWindowMs: 200
+    attackAfterSnapMs: 100
+    rewindBaseMs: 60
+    rewindPingFactor: 0.18
+    maxRewindMs: 140
+    bufferToFlag: 5
+    snapDecayIntervalMs: 4000
+  KillAuraD:
+    enabled: true
+    vl: 1.0
+    maxCps: 25.0
+    minNoSwingMs: 110
+    maxAngle: 14.0
+    maxDistance: 4.1
+    rewindBaseMs: 60
+    rewindPingFactor: 0.18
+    maxRewindMs: 140
+    bufferToFlag: 3
+  KillAuraE:
+    enabled: true
+    vl: 1.0
+  KillAuraF:
+    enabled: false
+    vl: 1.0
+  KillAuraG:
+    enabled: true
+    vl: 1.0
+    maxSwingToAttackMs: 100
+    hardNoSwingMs: 200
+    maxAngle: 12.0
+    maxDistance: 4.0
+    rewindBaseMs: 60
+    rewindPingFactor: 0.18
+    maxRewindMs: 140
+    bufferToFlag: 4
+  ReachA:
+    enabled: true
+    vl: 1.0
+    max: 3.22
+    baseTolerance: 0.10
+    pingToleranceFactor: 0.00055
+    maxPingTolerance: 0.22
+    sprintTolerance: 0.06
+    airTolerance: 0.04
+    sprintBonus: 0.05
+    attackerMoveTolerance: 0.08
+    rewindBaseMs: 100
+    rewindPingFactor: 0.40
+    maxRewindMs: 350
+    bufferToFlag: 7
+    comboWindowMs: 800
+    comboTolerance: 0.30
+    comboPerfectHitTolerance: 0.14
+    comboMinDisplacement: 0.24
+    comboMinShift: 0.09
+    comboSoftOver: 0.06
+    parryTolerance: 0.04
+    quarterSelectTolerance: 0.06
+    deepSelectTolerance: 0.10
+    tripleHitTolerance: 0.05
+    spacingTolerance: 0.06
+    dirtySampleTolerance: 0.12
+  ReachB:
+    enabled: true
+    vl: 1.0
+    max: 3.22
+    baseTolerance: 0.08
+    pingToleranceFactor: 0.00045
+    maxPingTolerance: 0.18
+    hardMargin: 0.15
+    sprintBonus: 0.08
+    attackerMoveTolerance: 0.08
+    rewindBaseMs: 100
+    rewindPingFactor: 0.35
+    maxRewindMs: 320
+    bufferToFlag: 4
+    comboWindowMs: 800
+    comboTolerance: 0.28
+    comboPerfectHitTolerance: 0.10
+    comboMinDisplacement: 0.24
+    comboMinShift: 0.09
+    comboSoftOver: 0.05
+    parryTolerance: 0.04
+    quarterSelectTolerance: 0.06
+    deepSelectTolerance: 0.10
+    tripleHitTolerance: 0.05
+    spacingTolerance: 0.06
+    dirtySampleTolerance: 0.12
+  ReachC:
+    enabled: true
+    vl: 1.0
+    max: 3.13
+    baseTolerance: 0.08
+    pingToleranceFactor: 0.00050
+    maxPingTolerance: 0.20
+    sprintBonus: 0.08
+    attackerMoveTolerance: 0.08
+    rewindBaseMs: 100
+    rewindPingFactor: 0.40
+    maxRewindMs: 350
+    sampleWindow: 12
+    violationsToFlag: 8
+    minAverageOver: 0.15
+    comboWindowMs: 800
+    comboTolerance: 0.30
+    parryTolerance: 0.04
+    quarterSelectTolerance: 0.06
+    deepSelectTolerance: 0.10
+    tripleHitTolerance: 0.05
+    spacingTolerance: 0.06
+    dirtySampleTolerance: 0.18
+  BackTrackA:
+    enabled: true
+    vl: 1.0
+    maxPacketAgeMs: 180
+    dedupeMs: 25
+    max: 3.20
+    currentSlack: 0.18
+    historicalSlack: 0.10
+    minExcessRewindMs: 45
+    minDisplacement: 0.32
+    minShift: 0.24
+    edgeShiftThreshold: 0.12
+    rewindBaseMs: 95
+    rewindPingFactor: 0.25
+    maxRewindMs: 190
+    extraHistoryMs: 160
+    attackerPacketGapMs: 130
+    targetPacketGapMs: 180
+    attackWithoutMoveMs: 110
+    attackWithoutRotateMs: 145
+    suddenPingChange: 45
+    maxLegitPingForDelay: 170
+    lowPingExtraAgeMs: 55
+    historySize: 8
+    timingHistorySize: 8
+    orderHistorySize: 8
+    pingHistorySize: 6
+    ageHistorySize: 6
+    minStaleRatio: 0.55
+    minTimingRatio: 0.50
+    minOrderRatio: 0.50
+    minPingAnomalyRatio: 0.45
+    minHistoryRatio: 0.60
+    meanAgeOverMs: 35
+    maxBuffer: 9
+    bufferToFlag: 6
+    comboWindowMs: 800
+    comboTolerance: 0.28
+    minComboWeight: 4
+  VelocityA:
+    enabled: true
+    vl: 1.0
+    windowBaseMs: 620
+    windowPingFactor: 0.40
+    windowMaxMs: 820
+    cleanMinExpectedH: 0.18
+    minExpectedH: 0.10
+    minRatio: 0.15
+    baseMin: 0.03
+    sampleWindow: 8
+    minCleanSamples: 4
+    violationsToFlag: 3
+    minSuspiciousRatio: 0.70
+    reverseCreditMul: 0.85
+    lateralCreditMul: 0.60
+  VelocityB:
+    enabled: true
+    vl: 1.0
+    minExpectedH: 0.16
+    nearZero: 0.05
+    minZeroTicks: 6
+    sampleWindow: 6
+    minCleanSamples: 3
+    violationsToFlag: 2
+    minSuspiciousRatio: 0.66
+  VelocityC:
+    enabled: true
+    vl: 1.0
+    minExpectedV: 0.14
+    minVerticalRatio: 0.20
+    baseMinV: 0.04
+    sampleWindow: 6
+    minCleanSamples: 3
+    violationsToFlag: 2
+    minSuspiciousRatio: 0.66
+  VelocityD:
+    enabled: true
+    vl: 1.0
+    blatantExpectedH: 0.42
+    blatantMaxMove: 0.012
+    blatantResponseRatio: 0.10
+    pressureA: 2.5
+    pressureB: 1.2
+    pressureC: 1.2
+  AutoClickA:
+    enabled: true
+    vl: 1.0
+    windowSwings: 42
+    minSamples: 24
+    minTrackedCps: 9.0
+    maxTrackedCps: 17.5
+    maxBandWidth: 1.15
+    minTwoBucketRatio: 0.92
+    maxStdMs: 4.4
+    maxCv: 0.075
+    maxOutlierRatio: 0.08
+    maxAttackStdMs: 16.0
+    bufferToFlag: 4
+  AutoClickB:
+    enabled: true
+    vl: 1.0
+    windowSwings: 38
+    minSamples: 22
+    minTrackedCps: 9.0
+    maxTrackedCps: 16.0
+    maxBandWidth: 1.0
+    minTwoBucketRatio: 0.95
+    maxStdMs: 5.0
+    maxCv: 0.08
+    maxOutlierRatio: 0.05
+    maxAttackStdMs: 14.0
+    bufferToFlag: 3
+  AutoClickC:
+    enabled: true
+    vl: 1.0
+    windowSwings: 40
+    minSamples: 24
+    minTrackedCps: 9.0
+    maxTrackedCps: 16.0
+    maxBandWidth: 1.25
+    minTwoBucketRatio: 0.90
+    maxWindowSpread: 0.55
+    maxCv: 0.09
+    sliceCount: 4
+    maxAttackStdMs: 18.0
+    bufferToFlag: 4
+  CriticalsA:
+    enabled: true
+    vl: 1.0
+    maxGroundDy: 0.015
+    maxGroundFallDistance: 0.06
+    bufferToFlag: 5
+  CriticalsB:
+    enabled: true
+    vl: 1.0
+    microUpMin: 0.001
+    microUpMax: 0.0625
+    microDownMin: -0.0625
+    microDownMax: -0.001
+    legitJumpMin: 0.10
+    bufferToFlag: 5
+  CriticalsC:
+    enabled: true
+    vl: 1.0
+    windowMs: 45000
+    minAttacks: 24
+    minCrits: 14
+    minCritFallDistance: 0.09
+    maxCritRate: 0.88
+    bufferToFlag: 4
+  AimAssistA:
+    enabled: true
+    vl: 1.0
+    attackWindowMs: 325
+    maxRange: 3.2
+    minYawDelta: 0.75
+    maxYawDelta: 18.0
+    maxCenterAngle: 8.5
+    sampleWindow: 10
+    minMeanYaw: 1.0
+    maxStdYaw: 0.12
+    stepQuantum: 0.01
+    gcdQuantum: 0.005
+    minDominantStepRatio: 0.72
+    minGridScore: 0.86
+    maxCenterMargin: 0.22
+    maxClickStdMs: 8.5
+    bufferToFlag: 7
+  AimAssistB:
+    enabled: true
+    vl: 1.0
+    attackWindowMs: 250
+    maxRange: 3.15
+    minRange: 2.0
+    snapThreshold: 18.0
+    maxYawDelta: 90.0
+    followSamples: 5
+    maxFollowCenterAngle: 0.85
+    maxFollowStd: 0.16
+    maxFollowMargin: 0.12
+    maxFollowError: 1.15
+    minLookDot: 0.992
+    bufferToFlag: 5
+  AimAssistC:
+    enabled: true
+    vl: 1.0
+    attackWindowMs: 325
+    maxRange: 3.25
+    minRange: 2.0
+    minYawDelta: 0.7
+    sampleWindow: 12
+    maxMeanCenterAngle: 1.0
+    maxCenterStd: 0.22
+    maxSingleError: 1.45
+    maxMeanAcceleration: 0.11
+    maxAccelerationStd: 0.08
+    overshootAngle: 1.4
+    maxOvershootRatio: 0.08
+    maxAttackStdMs: 18.0
+    bufferToFlag: 6
+  PiercingA:
+    enabled: true
+    vl: 1.0
+    maxDistance: 4.2
+    bufferToFlag: 2
+    step: 0.2
+    hitboxExpand: 0.15
+  FlyA:
+    enabled: true
+    vl: 1.0
+    minAirTicks: 8
+    hoverDy: 0.0045
+    bufferToFlag: 7
+  FlyB:
+    enabled: true
+    vl: 1.0
+    minAirTicks: 12
+    minFallDy: -0.045
+    maxDy: 0.02
+    bufferToFlag: 7
+  FlyC:
+    enabled: true
+    vl: 1.0
+    minAirTicks: 8
+    minHorizontal: 0.11
+    flatDy: 0.0035
+    bufferToFlag: 6
+  FlyD:
+    enabled: true
+    vl: 1.0
+    launchMinVelocityY: 0.75
+    launchExemptMs: 2200
+    launchMaxExtraMs: 1800
+    launchRecentVelocityWindowMs: 350
+    minAirTicks: 5
+    minSustainAirTicks: 8
+    minRiseDy: 0.032
+    sustainDy: 0.028
+    minUpTicks: 4
+    maxExtraRise: 0.035
+    bufferToFlag: 4
+  FlyE:
+    enabled: true
+    vl: 1.0
+    minAirTicks: 6
+    minSamples: 6
+    historySize: 10
+    maxTrackedTicks: 1.35
+    baseTolerance: 0.038
+    minViolationRatio: 0.62
+    bufferToFlag: 4
+  SpeedA:
+    enabled: true
+    vl: 1.2
+    minOver: 0.055
+    groundBufferToFlag: 4
+    airBufferToFlag: 3
+  SpeedB:
+    enabled: true
+    vl: 1.2
+    nearCapRatio: 1.05
+    minOver: 0.035
+    bufferToFlag: 12
+  SpeedC:
+    enabled: true
+    vl: 1.2
+    minOver: 0.045
+    maxRiseDy: 0.42
+    bufferToFlag: 4
+  SpeedD:
+    enabled: true
+    vl: 1.2
+    groundSpikeOver: 0.30
+    airSpikeOver: 0.22
+  StepA:
+    enabled: false
+    maxStep: 0.8
+    vl: 1.0
+  StepB:
+    enabled: true
+    maxStep: 1.0
+    vl: 1.0
+  StepC:
+    enabled: true
+    maxStep: 1.2
+    vl: 1.0
+  NoFallA:
+    enabled: true
+    vl: 1.0
+    minFallDistance: 3.25
+    bufferToFlag: 2
+    damageWaitMs: 180
+    damageWindowMs: 1200
+    eventWindowMs: 1000
+    combatGraceMs: 900
+    minFallDamage: 0.5
+  NoFallB:
+    enabled: true
+    vl: 1.0
+    minSpoofDy: -0.11
+    bufferToFlag: 3
+  NoFallC:
+    enabled: true
+    vl: 1.0
+    minTrackedFall: 4.0
+    minReportedFall: 1.35
+    minResetFall: 3.0
+    midAirMinReported: 0.5
+    hardResetReported: 0.35
+    resetCountToFlag: 3
+    eventWindowMs: 1000
+    bufferToFlag: 2
+  JesusA:
+    enabled: true
+    vl: 1.0
+  JesusB:
+    enabled: true
+    vl: 1.0
+  PhaseA:
+    enabled: true
+    vl: 1.0
+    minSolidOverlaps: 3
+    maxEmbeddedHorizontal: 0.45
+    bufferToFlag: 4
+  PhaseB:
+    enabled: true
+    vl: 1.0
+    minHorizontal: 0.24
+    maxDistance: 4.5
+    minPathSolids: 2
+    bufferToFlag: 2
+  GroundSpoofA:
+    enabled: true
+    vl: 1.0
+  GroundSpoofB:
+    enabled: true
+    vl: 1.0
+  BlinkA:
+    enabled: true
+    vl: 1.0
+    minGapMs: 500
+    burstThresholdMs: 25
+    minDist: 2.0
+    hardDist: 5.0
+    minBurstPackets: 3
+    bufferToFlag: 2
+    setbackCooldownMs: 900
+  BlinkB:
+    enabled: true
+    vl: 1.0
+    deadZoneMs: 450
+    burstMinPackets: 5
+    burstWindowMs: 200
+    deadBurstMaxGapMs: 2000
+    idleGraceMs: 250
+    minSampleDisplacement: 0.20
+    minDisplacement: 1.5
+    bufferToFlag: 2
+  ScaffoldA:
+    enabled: true
+    vl: 1.0
+    debug: false
+    sampleSize: 6
+    minStreak: 5
+    maxAverageMs: 200.0
+    maxCv: 0.12
+    maxSpreadMs: 90.0
+    pitchSampleSize: 6
+    maxPitchCv: 6.0
+    minBridgeMoveH: 0.10
+    maxBehindDot: -0.56
+    minBehindHorizontalDistance: 0.32
+    minAimDot: 0.28
+    minHorizontalSupport: 0.85
+    minShallowPitch: 12.0
+    legitAimDot: 0.72
+    legitSupportDistance: 1.05
+    legitBridgePitch: 18.0
+    bufferToFlag: 2
+  ScaffoldB:
+    enabled: true
+    vl: 1.0
+    minAimDot: 0.30
+    minHorizontalSupport: 0.80
+    minBridgePitch: 12.0
+    bufferToFlag: 3
+  ScaffoldC:
+    enabled: true
+    vl: 1.0
+    maxEyeDistance: 4.2
+    minHorizontalDistance: 1.85
+    bufferToFlag: 2
+  ScaffoldD:
+    enabled: true
+    vl: 1.0
+    debug: false
+    minMoveH: 0.08
+    maxBehindDot: -0.55
+    minHorizontalDistance: 0.25
+    minStreak: 4
+    bufferToFlag: 2
+  InventoryA:
+    enabled: true
+    vl: 1.0
+  InventoryB:
+    enabled: true
+    vl: 1.0
+    maxClicksPerSec: 18.0
+    maxIntervalStd: 18.0
+  InventoryC:
+    enabled: true
+    vl: 1.0
+    openAttackWindowMs: 500
+  FastBowA:
+    enabled: true
+    vl: 1.0
+    blatantPullMs: 70
+    suspiciousPullMs: 120
+    bufferToFlag: 3
+  FastBowB:
+    enabled: true
+    vl: 1.0
+    minShotIntervalMs: 180
+    maxShortPullMs: 150
+    bufferToFlag: 3
+  NukerA:
+    enabled: true
+    vl: 1.2
+    windowMs: 1500
+    maxBreaksPerSecond: 1.35
+    minBreaks: 2
+    bufferToFlag: 2
+  NukerB:
+    enabled: true
+    vl: 1.2
+    maxAngle: 60.0
+    bufferToFlag: 2
+  NukerC:
+    enabled: true
+    vl: 1.3
+    maxReach: 4.8
+    bufferToFlag: 2
+  NukerD:
+    enabled: true
+    vl: 1.2
+    minDigStartIntervalMs: 45
+    maxStartsBeforeBreak: 4
+    ratioCheckInterval: 2
+    maxStartBreakRatio: 2.0
+    bufferToFlag: 3
+  TimerA:
+    enabled: true
+    vl: 1.0
+    maxFastIntervalMs: 42
+    minDebtMs: 120
+    maxTrackedDebtMs: 400
+    resetGapMs: 140
+    bufferToFlag: 6
+  TimerB:
+    enabled: true
+    vl: 1.0
+    windowMs: 2500
+    minRatio: 1.08
+    resetAfterMs: 3500
+    resetGapMs: 160
+    bufferToFlag: 3
+  BadPacketsA:
+    enabled: true
+    vl: 1.0
+    maxAbsPitch: 90.1
+    bufferToFlag: 2
+  BadPacketsB:
+    enabled: true
+    vl: 1.0
+    maxDuplicateIntervalMs: 8
+    maxTinyIntervalMs: 16
+    minNoRotationMs: 80
+    resetGapMs: 110
+    lagCoverScore: 1.15
+    bufferToFlag: 4
+  BadPacketsC:
+    enabled: true
+    vl: 1.2
+    bufferToFlag: 4
+    attackFreshnessMs: 150
+    hardSwingDeltaMs: 120
+  NoRotationA:
+    enabled: true
+    vl: 1.0
+    attackWindowMs: 220
+    dedupeMs: 25
+    minRange: 1.25
+    maxRange: 4.2
+    maxRotationAgeMs: 165
+    maxAttackAngle: 32.0
+    maxLookDot: 0.84
+    bufferToFlag: 4
+  NoRotationB:
+    enabled: true
+    vl: 1.0
+    attackWindowMs: 220
+    dedupeMs: 25
+    minRange: 1.0
+    maxRange: 4.3
+    staleRotationMs: 95
+    impossibleAngle: 58.0
+    impossibleLookDot: 0.58
+    bufferToFlag: 3
+  FastEatA:
+    enabled: true
+    vl: 1.0
+    blatantUseMs: 700
+    suspiciousUseMs: 1100
+    bufferToFlag: 2
+  FastBowB:
+    enabled: true
+    vl: 1.0
+    minShotIntervalMs: 180
+    maxShortPullMs: 150
+    bufferToFlag: 3
+  NoSlowA:
+    enabled: true
+    vl: 1.0
+    minTrackedSpeed: 0.10
+    maxGroundSpeedWhileUsing: 0.20
+    bufferToFlag: 5
+  NoSlowB:
+    enabled: true
+    vl: 1.0
+    minTrackedSpeed: 0.12
+    maxNearSprintWhileUsing: 0.235
+    bufferToFlag: 4
+  FastBreakA:
+    enabled: true
+    vl: 1.0
+    toleranceRatio: 0.80
+    minExpectedMs: 100
+    bufferToFlag: 3
+  FastBreakB:
+    enabled: true
+    vl: 1.0
+    sampleSize: 10
+    minSamples: 5
+    instantBlockMinAvgMs: 50.0
+    minAvgRatio: 0.70
+    bufferToFlag: 3
+
+vl:
+  decay-grace-ms: 15000
+  decay-per-second: 0.12
+  global-decay-per-second: 0.03
+  decay-min-interval-ms: 250

@@ -1,0 +1,288 @@
+tiers-version: 1
+
+defaults:
+  tier: PREDICTION
+  enabled: true
+  shadow: false
+  punishVl: 150
+  failWeight: 0.35
+  bufferToFlag: 7
+  decay: 0.15
+  setbackEnabled: true
+  respectPointThree: true
+
+PredictionOffset:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  advantageSetbackThreshold: 1
+  engineSlabFallMaxDy: 0.06  # Check-specific tuning value
+  engineSlabFallMinDy: -0.65  # Check-specific tuning value
+  engineSlabMaxHorizontal: 0.85  # Check-specific tuning value
+  engineSlabOffsetGrace: 0.28  # Check-specific tuning value
+  engineSlabRiseMaxDy: 0.62  # Check-specific tuning value
+  engineSlabRiseMinDy: 0.015  # Check-specific tuning value
+  moderateOffset: 0.14  # Packet cancel without full setback
+  offsetThreshold: 0.10  # Threshold — raise to reduce false positives
+  setbackThreshold: 0.18  # Threshold — raise to reduce false positives
+  engineBlatantOffset: 0.18  # Blatant cheat threshold (separate from slab grace)
+
+PredictionFly:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 5  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  damageCooldownMs: 500  # Time window in milliseconds
+  dropGraceMaxOffset: 0.26  # Check-specific tuning value
+  engineBlatantVerticalOffset: 0.32  # Check-specific tuning value
+  engineDropGraceMaxOffset: 0.28  # Check-specific tuning value
+  engineDropMaxDy: 0.06  # Check-specific tuning value
+  engineDropMaxHorizontal: 0.85  # Check-specific tuning value
+  engineDropMinDy: -0.65  # Check-specific tuning value
+  engineGraceMaxOffset: 0.20  # Check-specific tuning value
+  engineJumpGraceMaxDy: 0.52  # Check-specific tuning value
+  engineJumpGraceMaxHorizontal: 0.95  # Check-specific tuning value
+  engineJumpGraceMaxOffset: 0.32  # Check-specific tuning value
+  engineJumpGraceMinDy: -0.22  # Check-specific tuning value
+  engineSlabMaxDy: 0.40  # Check-specific tuning value
+  engineSlabMaxHorizontal: 0.85  # Check-specific tuning value
+  engineSlabMinDy: 0.015  # Check-specific tuning value
+  engineStepGraceMaxOffset: 0.30  # Check-specific tuning value
+  engineStepMaxDy: 0.62  # Check-specific tuning value
+  engineStepMaxHorizontal: 0.85  # Check-specific tuning value
+  engineStepMinDy: 0.12  # Check-specific tuning value
+  engineVerticalOffset: 0.08  # Check-specific tuning value
+  engineHoverMinTicks: 4
+  engineHoverBlatantTicks: 6
+  engineHoverVerticalOffset: 0.045
+  jumpGraceMaxOffset: 0.30  # Check-specific tuning value
+  jumpGraceMinDy: -0.20  # Check-specific tuning value
+  stepGraceMaxOffset: 0.28  # Check-specific tuning value
+
+PredictionFlyBob:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 6
+  bobMinAirMs: 1300
+  bobMinReversals: 3
+  bobMinAmplitude: 0.06
+  bobMinVerticalOffset: 0.04
+  repeatWindowMs: 8000
+
+PredictionFlyBurst:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 4
+  burstDy: 0.38
+  twoTickBurstDy: 0.55
+  blatantBurstDy: 0.55
+  burstVelocityWindowMs: 700
+
+PredictionFlyGravity:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 7
+  gravityMinAirTicks: 10
+  gravitySampleSize: 12
+  gravityErrorThreshold: 0.06
+  gravityMinConsecutive: 8
+
+PredictionSpeed:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 4
+  engineBlatantHorizontalOffset: 0.55
+  engineHorizontalOffset: 0.032
+  engineAirStrafeRatioMin: 1.032
+  engineAirStrafeOffset: 0.026
+  engineSpeedRatioMin: 1.048
+  engineSpeedRatioTicks: 4
+  engineMicroRatioTicks: 10
+  engineGainStreakTicks: 8
+  engineAdvantageThreshold: 0.14
+  engineBlatantAdvantage: 0.22
+  engineGroundRatioMin: 1.08
+  engineIceMaxHorizontalOffset: 0.62
+  engineKnockbackHorizontalMaxOffset: 0.58
+  jumpGraceMaxOffset: 0.85
+
+PredictionGroundSpoof:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  engineSlabFallMaxDy: 0.06  # Check-specific tuning value
+  engineSlabFallMinDy: -0.65  # Check-specific tuning value
+  engineStepMaxDy: 0.62  # Check-specific tuning value
+  engineStepMaxHorizontal: 0.85  # Check-specific tuning value
+  engineStepMinDy: 0.015  # Check-specific tuning value
+  minDy: 0.05  # Bound/limit for this check
+  minDescentDy: -0.04
+
+PredictionGroundSpoofDescent:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 2
+  minDescentDy: -0.04
+  descentTicksToFlag: 3
+  cumulativeDescentMin: 0.12
+
+PredictionNoFall:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 2
+  minFallDistance: 2.9
+  damageWaitMs: 140
+  damageWindowMs: 1000
+  minFallDamage: 0.5
+  damageTolerance: 0.35
+  combatGraceMs: 700
+
+PredictionNoFallBlink:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 3
+  blinkMinGapMs: 120
+  minBlinkDrop: 3.0
+  blatantDrop: 6.0
+  damageWaitMs: 140
+  damageWindowMs: 1000
+
+PredictionNoFallReset:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 2
+  minTrackedFall: 3.2
+  hardResetReported: 0.45
+  resetCountToFlag: 2
+  eventWindowMs: 850
+
+PredictionStep:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 4
+  engineVerticalOffset: 0.12
+
+PredictionJesus:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 4
+  engineHorizontalOffset: 0.08
+  surfaceHorizontalOffset: 0.065
+  ladderLegitMaxDy: 0.22
+  ladderLegitMaxVOff: 0.12
+  ladderBlatantDy: 0.28
+
+PredictionSpider:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 5
+  minStreak: 3
+  minOffset: 0.04
+  minVerticalOffset: 0.035
+
+PredictionBlink:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 4
+  blatantBurstPackets: 3
+  blatantFlushMove: 2
+  blatantGapMs: 120
+  engineOffsetThreshold: 0.18
+  timerDebtMs: 140
+
+PredictionPhase:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  enginePhaseOffset: 0.10  # Check-specific tuning value
+
+PredictionTimer:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 6
+  txBufferToFlag: 8
+  txMinDriftMs: 100
+  blatantIntervalMs: 45
+  gainDebtMs: 180.0
+  setbackMaxIntervalMs: 38
+  setbackMinDebtMs: 200.0
+
+PredictionNoSlow:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 3
+  engineHorizontalOffset: 0.022
+  engineNoSlowExcess: 0.012
+  engineFakeReleaseOffset: 0.015
+
+PredictionVelocity:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 4
+  failVl: 1.2
+  animateOnFlag: true
+
+PredictionWeb:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 5
+  engineOffsetThreshold: 0.08
+  failVl: 1.0
+
+PredictionWater:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 5
+  engineHorizontalOffset: 0.1
+  failVl: 1.0
+
+PredictionExplosion:
+  tier: PREDICTION
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: true
+  bufferToFlag: 4
+  engineOffsetThreshold: 0.1
+  failVl: 1.0
+  minExplosionRatio: 0.5

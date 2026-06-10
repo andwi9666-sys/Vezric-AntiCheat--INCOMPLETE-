@@ -1,0 +1,834 @@
+# =============================================================================
+# VezAntiCheat — Server Config (config.yml)
+# =============================================================================
+# Global plugin settings: engines, lag gates, punishments, messages.
+#
+# PER-CHECK TUNING lives in checks.yml (enabled, shadow, vl, bufferToFlag, thresholds).
+# Reload both: /vez reload
+# Live tune a check: /vez tune <CheckName> <key> [value]
+# =============================================================================
+
+config-version: 16
+
+# Polar tier system settings
+tier:
+  vl-decay-grace-ms: 15000
+  setback-blatant-offset: 0.15
+
+# Player-vs-player combat cheat mitigation: drop hits + punitive setback (no movement correction)
+combat-mitigation:
+  enabled: true
+  drop-hits-on-flag: true
+  punitive-setback: true
+  push-blocks: 0.40
+  teleport-exempt-ms: 250
+  min-confidence-for-setback: moderate
+
+# Chat prefix used in {prefix} placeholders below
+prefix: '&6[WatchDog] '
+
+# Master anticheat switch (/vez on|off also toggles this)
+anticheat:
+  enabled: true  # false = all checks stop flagging
+
+# Simulation setback aggressiveness when prediction flags
+simulation:
+  enabled: true  # Enable simulation-based setbacks
+  mitigation-strategy: CAREFUL  # AGGRESSIVE | CAREFUL | LENIENT | SILENT
+
+# Staff alert formatting
+flags:
+  format: '{prefix}&e{player} &7failed &c{check} &8[&7{tier}&8] &7(&fVL {vl}&7)'  # check=Polar name, tier=Prism/Heuristics/etc.
+  staff-default-on: true  # New staff see alerts without running /flags
+
+messages:
+  no-permission: '{prefix}&cNo permission.'
+  flags-on: '{prefix}&aAlerts enabled.'
+  flags-off: '{prefix}&cAlerts disabled.'
+  enabled: '{prefix}&aWatchdog enabled.'
+  disabled: '{prefix}&cWatchdog disabled.'
+  reload: '{prefix}&aReloaded config.'
+# Skip detections when server or player connection is unstable
+lag:
+  enable-gates: true   # true = disable checks above max-ping or below min-tps
+  max-ping: 250        # Players above this ping (ms) are not checked
+  min-tps: 18.5        # Server below this TPS disables checks
+  profile:
+    suspicious-gap-ms: 160
+    base-gap-allowance-ms: 115
+    ping-factor: 0.55
+    jitter-factor: 1.8
+    trusted-ping-max: 190
+    trusted-jitter-max: 22.0
+    burst-threshold-ms: 18
+    burst-window-ms: 700
+    min-burst-packets: 4
+    attack-window-ms: 900
+    velocity-window-ms: 650
+    active-window-ms: 4500
+    decay-per-second: 0.28
+    counter-reset-ms: 12000
+    boost-start-score: 1.25
+    boost-factor: 0.18
+    max-boost: 0.75
+    selective-start-score: 1.35
+    combat-cover-window-ms: 1400
+    velocity-cover-window-ms: 1200
+    velocity-cover-score: 1.15
+    buffer-bonus-low-score: 1.4
+    buffer-bonus-high-score: 2.8
+    combat-teleport:
+      focus-window-ms: 2200
+      intent-window-ms: 900
+      fallback-range: 6.5
+      min-ping-samples: 8
+      trusted-ping-max: 185
+      trusted-jitter-max: 18.0
+      min-gap-ms: 170
+      gap-excess-ms: 25
+      min-start-distance: 4.6
+      max-end-distance: 3.8
+      default-legit-per-tick: 0.36
+      min-move-h: 1.15
+      min-move-over-legit: 0.40
+      min-close-delta: 1.30
+      min-closure-ratio: 0.72
+      window-ms: 9000
+      max-samples: 16
+      score-gain: 1.15
+      close-bonus-factor: 0.22
+      max-close-bonus: 0.75
+      max-score: 10.0
+      active-min-events: 2
+      active-score-factor: 0.45
+      active-max-bonus: 1.65
+      selective-min-events: 2
+# Vanilla 1.8 knockback envelope used to scale reach/velocity tolerances
+knockback-profile:
+  horizontal: 0.4        # Base horizontal KB strength
+  vertical: 0.389      # Base vertical KB strength
+  vertical-limit: 0.4  # Max vertical KB before clamp
+  extra-horizontal: 0.5  # Sprint/KB combo horizontal allowance
+  extra-vertical: 0.1    # Extra vertical KB allowance
+
+# Anti-knockback / velocity prediction engine
+velocity-engine:
+  enabled: true  # Master switch for VelocityA-D and VelocityPrediction
+  debug: false
+  prediction-ticks: 8
+  evaluation-window-base-ms: 320
+  evaluation-window-ping-factor: 0.25
+  evaluation-window-max-ms: 550
+  combat-velocity-ms: 350
+  stack-window-ms: 120
+  jump-reset-window-ms: 220
+  horizontal-tolerance: 0.18
+  vertical-tolerance: 0.14
+  min-track-horizontal: 0.06
+  min-track-vertical: 0.08
+  physics:
+    gravity: 0.08
+    air-drag: 0.91
+    ground-friction: 0.6
+    sprint-assist: 0.06
+    jump-velocity: 0.42
+    counter-input: 0.20
+  leniency:
+    max-ping: 250
+    min-tps: 18.5
+  setback:
+    enabled: true
+    cooldown-ms: 0
+    min-confidence: 0.82
+# Global exemption windows after legit server events (reduces false positives)
+exempt:
+  teleport-ms: 900   # After legit server teleports (join/respawn/world change) — setbacks do not apply this
+  velocity-ms: 450   # After knockback/explosion
+  blockstate-ms: 550 # After block state change (bridging needs longer grace)
+  potion-ms: 700     # After speed/jump potion effect
+
+# Shared combat context for Reach, Hitbox, KillAura, etc. (not per-check)
+combat-analysis:
+  enabled: true
+  cancel-impossible-hits: true
+  join-grace-ms: 5000
+  punish-buffer: 25.0
+  alert-buffer-spike: 3.0
+  alert-format: '{prefix}&e{player} &7failed &cCombatAnalysis &7VL: &f{buffer} &7Reason: &f{reason}'
+
+  reach:
+    max-normal-reach: 3.05
+    max-lenient-reach: 3.25
+    max-very-lenient-reach: 3.45
+    max-bad-reach: 3.70
+
+  hitbox-expansion:
+    small: 0.03
+    medium: 0.06
+    full: 0.10
+    low-ping-max: 50
+    mid-ping-max: 100
+    high-ping-max: 160
+
+  scoring:
+    clean-score: 0.0
+    lenient-score: 0.5
+    very-lenient-score: 1.5
+    bad-score: 3.0
+    impossible-score: 5.0
+    low-ping-full-expansion-extra: 1.0
+    low-ping-medium-expansion-extra: 0.5
+    high-ping-reduction-multiplier: 0.70
+
+  pre-aim:
+    ticks: 5
+    near-yaw-error: 12.0
+    near-pitch-error: 15.0
+    strong-yaw-error: 6.0
+
+  accuracy-spike:
+    enabled: true
+    tracking-error-threshold: 15.0
+    attack-error-threshold: 3.0
+    severe-tracking-error-threshold: 25.0
+    severe-attack-error-threshold: 2.0
+
+  target-switch:
+    enabled: true
+    quick-switch-ms: 250
+    very-quick-switch-ms: 150
+    large-angle: 45.0
+    perfect-hit-yaw-error: 3.0
+
+  leniency:
+    recent-knockback-ms: 300
+    recent-knockback-suspicion-multiplier: 0.75
+    target-recent-velocity-ms: 300
+
+  buffers:
+    decay-per-second: 0.25
+    cancel-buffer: 8.0
+    alert-buffer: 15.0
+    max-buffer: 30.0
+
+  alerts:
+    enabled: true
+    cooldown-ms: 3000
+    debug: false
+
+  false-positive:
+    join-skip-ms: 5000
+    teleport-skip-ms: 750
+    teleport-lenient-impossible: true
+    close-range-blocks: 1.2
+    high-attacker-ping: 250
+    high-target-ping: 250
+    tps-reduce-threshold: 18.5
+    tps-alert-suppress-threshold: 17.5
+    tps-suspicion-multiplier: 0.50
+    attacker-ping-aim-multiplier: 0.35
+    target-ping-reach-multiplier: 0.50
+    close-range-aim-multiplier: 0.60
+    tight-space-multiplier: 0.70
+    near-block-multiplier: 0.80
+    velocity-multiplier: 0.75
+    vertical-offset-multiplier: 0.75
+    vertical-offset-blocks: 1.5
+    recent-teleport-multiplier: 0.50
+
+  attack-window-ms: 325
+  rewind-base-ms: 70
+  rewind-ping-factor: 0.25
+  max-rewind-ms: 180
+  trade-window-ms: 450
+  combo-window-ms: 800
+  jump-reset-window-ms: 450
+  jump-combat-window-ms: 950
+  blockhit-window-ms: 250
+  walk-through-distance: 1.1
+  packet-burst-ms: 110
+  packet-burst-jitter-ms: 18.0
+  high-jitter-ms: 12.0
+  stale-move-ms: 150
+  stale-rotation-ms: 140
+  stale-swing-ms: 180
+  trade-depth-window-ms: 1200
+  spacing-shift-threshold: 0.28
+  triple-hit-fast-ms: 350
+  triple-hit-delay-ms: 525
+  combat-spam-window-ms: 900
+  combat-spam-min-attacks: 4
+  spacing-attack-window-ms: 650
+  counterstrafe-window-ms: 450
+  spacing-backward-min-angle: 110.0
+  spacing-min-speed: 0.04
+  hit-select:
+    parry-min-ms: 100
+    parry-max-ms: 250
+    quarter-min-ms: 500
+    quarter-max-ms: 1000
+    deep-min-ms: 1000
+movement-analysis:
+  packet-burst-ms: 110
+  high-jitter-ms: 12.0
+  eat-movement-grace-ms: 1400
+  jump-window-ms: 320
+  jump-arc-window-ms: 950
+  jump-arc-max-horizontal: 1.08
+  jump-arc-min-dy: -0.82
+  jump-arc-max-dy: 0.55
+  jump-arc-max-offset: 0.52
+  fall-arc-window-ms: 2800
+  fall-land-grace-ms: 750
+  fall-arc-min-drop: 1.25
+  fall-arc-max-offset: 0.62
+  fall-arc-landing-max-offset: 0.85
+  fall-damage-setback-grace-ms: 800
+  fall-arc-max-horizontal: 1.12
+  fall-arc-min-dy: -1.05
+  fall-arc-max-dy: 0.42
+  speed-micro-ratio-min: 1.008
+  speed-gain-min: 0.022
+  sprint-jump-grace-window-ms: 950
+  sprint-jump-min-dy: -0.78
+  sprint-jump-rise-slack: 0.08
+  ladder-legit-max-dy: 0.22
+  ladder-legit-max-voff: 0.12
+  ladder-blatant-dy: 0.28
+  sprint-jump-base-horizontal: 0.12
+  sprint-jump-horizontal-per-tick: 0.40
+  sprint-jump-speed-potion-horizontal: 0.05
+  jump-phase-window-ms: 420
+  jump-phase-min-dy: -0.14
+  jump-phase-rise-slack: 0.035
+  jump-phase-max-horizontal: 0.82
+  jump-phase-extra-horizontal-per-tick: 0.18
+  fly-physics:
+    bob-min-air-ms: 1300
+    bob-min-reversals: 3
+    bob-min-amplitude: 0.06
+    bob-min-vertical-offset: 0.04
+    burst-velocity-window-ms: 700
+    gravity-sample-size: 12
+  velocity-window-ms: 500
+  explosion-window-ms: 900
+  combat-window-ms: 400
+  block-place-window-ms: 250
+combat:
+  killaura:
+    share-vl: true
+    aggregate-own-public-flags: true
+    public-flag-rearm-ms: 0
+    public-suppression-state-min-gap-ms: 0
+timer:
+  share-vl: true
+nofall:
+  # auto = read gamerule when available; set false when your server disables fall damage
+  fall-damage-enabled: auto
+  # Worlds treated as no fall damage for fall-arc / landing prediction grace (speed/fly cheats still flag).
+  no-damage-worlds:
+    - world
+    - arena
+  min-fall-distance: 2.9
+  damage-wait-ms: 140
+  damage-window-ms: 1000
+  blink-min-gap-ms: 120
+  min-blink-drop: 3.0
+  ground-spoof:
+    min-descent-dy: -0.04
+    descent-ticks-to-flag: 3
+    cumulative-descent-min: 0.12
+# Grim-style offset movement prediction engine.
+# When enabled, the *Prediction movement sub-checks (Speed/Fly/Phase/GroundSpoof/NoSlow and
+# the aggregate OffsetPrediction) read the decomposed offset from this engine instead of the
+# legacy heuristic processor. Disable to fall back to the old prediction path.
+# Grim-style movement prediction engine (FlyPrediction, SpeedPrediction, OffsetPrediction, ...)
+engine:
+  enabled: true  # false = legacy movement checks only
+  shadow-legacy-duplicates: true  # true = skip FlyA-F/SpeedA-D when engine is on
+  skip-legacy-movement-prediction: true  # true = engine-only movement validation (keeps velocity session path)
+  # Maintain a packet-synced block-change overlay (BLOCK_CHANGE / MULTI_BLOCK_CHANGE) on top of
+  # the live world so collision sees latency-compensated blocks (defeats ghost-block phase).
+  world-cache: true
+  # Capture knockback/explosion directly from outgoing ENTITY_VELOCITY / EXPLOSION packets and
+  # fold them into the prediction (more accurate than Bukkit PlayerVelocityEvent).
+  packet-knockback: true
+  # How long after a knockback/explosion packet it is folded into the next movement tick.
+  knockback-window-ms: 550
+  knockback-grace-ms: 300
+  combat-movement-grace-ms: 450
+  advantage-decay: 0.999
+  advantage-threshold: 0.001
+  illegal-sprint-threshold: 0.14
+  illegal-sneak-threshold: 0.04
+  player-clock:
+    enabled: true
+    flag-ahead-ms: 110
+    max-drift-ms: 150
+    cancel-packet: true
+    cancel-packet-min-drift-ms: 150
+    setback: true
+    setback-min-drift-ms: 200
+
+# Blatant movement packet cancel + immediate setback enforcement
+movement-enforcement:
+  enabled: true
+
+# Polar-style Prism tier mitigation (pattern checks cancel/drop within ~5ms)
+prism:
+  mitigation-delay-ms: 5
+  pattern-window-ms: 8000
+  min-perfect-streak-default: 6
+
+# Block movement until server setback is accepted (NoRotate / Disabler counter)
+setback-blocker:
+  enabled: true
+  max-pending-ms: 2000
+
+# Lightweight AI risk scoring + CSV evidence export (shadow by default)
+ai:
+  enabled: true
+  shadow-mode: true
+  decay-per-second: 0.35
+  mark-score-threshold: 8.0
+  evidence:
+    enabled: true
+
+# Grim-style combat engine: transaction-anchored entity tracking + lag-compensated reach.
+# When enabled, combat checks (Reach/Hitbox/BackTrack/Piercing/Lagrange and KillAura A/D)
+# validate against the exact entity position the client saw at attack time, rewound by the
+# last acknowledged transaction. Falls back to the legacy position-history rewind for any
+# untracked target (mobs that just spawned, etc.) so behaviour is never worse than before.
+# Coexist with Vulcan on the same PacketEvents plugin (no second Netty inject).
+# mode: auto = enable when Vulcan.jar is present | true | false
+integrations:
+  vulcan:
+    mode: auto
+    hook-delay-ticks: 40
+    disable-transactions: true
+    skip-transaction-listener: true
+    receive-priority: LOWEST
+
+# Rolling combat history + reach classification for silent-aim evidence (no VL yet)
+combat-analyzer:
+  enabled: true
+
+# Lag-compensated reach/entity tracking for combat checks
+combat-engine:
+  enabled: true  # false = legacy position-history rewind only
+  # Send a window-confirmation ("transaction") each tick and time the echo for ping rewind.
+  # Disable to anchor entity snapshots by wall-clock time instead of transaction acks.
+  transactions: true
+  # Track server->client entity spawn/move/teleport/metadata/destroy packets into a per-viewer
+  # CompensatedEntities buffer used by the rewind.
+  entity-tracking: true
+  # Transaction sequences to include around the client's last ack when reconstructing the
+  # position window (covers interpolation + 1-tick send latency). Higher = more lenient.
+  rewind-bracket-back: 2
+  rewind-bracket-forward: 1
+  # Hard cap on how far back the rewind may look (ms), for both the engine and legacy fallback.
+  max-rewind-ms: 800
+  # Legacy-fallback rewind window (only used when a target is untracked): base + ping * factor.
+  fallback-rewind-base-ms: 60
+  fallback-rewind-ping-factor: 0.5
+  reach-1_8-margin: 0.1
+  block-impossible-hits: true
+  block-impossible-confidence: 0.85
+
+prediction:
+  enabled: true
+  debug: false
+  offset:
+    horizontal-threshold: 0.06
+    vertical-threshold: 0.08
+    velocity-extra-horizontal: 0.10
+  fly:
+    hover-dy: 0.0045
+  no-slow:
+    max-horizontal: 0.21
+    engine-horizontal: 0.025
+  ground-spoof:
+    min-dy: 0.05
+  phase:
+    min-solid-overlaps: 3
+    min-path-solids: 2
+  compensation:
+    hidden-ground-max-dy: 0.085
+    extra-horizontal: 0.045
+    extra-vertical: 0.070
+    ground-update-window-ms: 400
+    ground-update-radius: 1
+  simulation:
+    horizontal-tolerance: 0.024
+    vertical-tolerance: 0.045
+    horizontal-outside-threshold: 0.018
+    vertical-outside-threshold: 0.03
+    velocity-carry-ms: 175
+    carry-horizontal-extra: 0.02
+    jump-carry-horizontal-extra: 0.015
+    carry-vertical-extra: 0.04
+    carry-vertical-min: -0.98
+    shared-max-buffer: 12
+    share-classic-vl: true
+    share-prediction-vl: true
+    share-classic-buffer: true
+    cross-engine-classic-support-cap: 1
+    cross-engine-prediction-support-cap: 1
+    prediction-min-sources-to-flag: 2
+    prediction-solo-buffer-to-flag: 5
+    prediction-source-max-contribution: 3
+    classic-default-gain: 1
+    classic-buffer-to-flag: 2
+    classic-solo-buffer-to-flag: 2
+    classic-min-families-to-flag: 2
+    public-flag-rearm-ms: 0
+    public-flag-suppression-state-min-gap-ms: 0
+    classic-public-flag-rearm-ms: 0
+    classic-public-flag-suppression-state-min-gap-ms: 0
+    classic-setback-buffer: 2
+    classic-setback-solo-buffer: 2
+    classic-setback-min-families: 2
+    classic-setback-rearm-ms: 0
+    classic-setback-dedupe-ms: 0
+    classic-family-cooldown-ms: 0
+    classic-family-max-contribution: 3
+    classic-family-decay-interval-ms: 700
+    classic-family-decay-amount: 1
+    classic-buffer-window-ms: 1600
+    classic-max-buffer: 6
+  uncertainty:
+    point-three-horizontal: 0.031
+    point-three-vertical: 0.060
+    sneak-horizontal: 0.015
+    sneak-vertical: 0.020
+    block-update-horizontal: 0.050
+    block-update-vertical: 0.080
+    block-update-window-ms: 250
+    block-update-radius: 1
+  timer:
+    max-fast-interval-ms: 42
+    min-debt-ms: 120.0
+    max-tracked-debt-ms: 450
+    reset-gap-ms: 160
+    focus-reset-gap-ms: 225
+    focus-reset-lag-score: 0.9
+  setback:
+    enabled: true
+    cooldown-ms: 0
+    teleport-exempt-ms: 900
+    max-valid-age-ms: 2500
+    valid-engine-offset: 0.12  # Engine offset at/below this on ground = valid anchor sample
+    simulation-cooldown-ms: 0
+    simulation-teleport-exempt-ms: 0
+    timer-cooldown-ms: 0
+    timer-teleport-exempt-ms: 0
+    antikb-cooldown-ms: 0
+    antikb-teleport-exempt-ms: 0
+    antikb-correction-exempt-ms: 500
+    antikb-correction-teleport-exempt-ms: 0
+    antikb-animation-enabled: true
+    antikb-animation-steps: 24
+    antikb-animation-tick-delay: 1
+    antikb-min-replay-ratio: 0.85
+    antikb-animation-max-horizontal: 0.90
+    antikb-animation-max-vertical: 0.42
+    antikb-animation-max-distance: 1.70
+    antikb-animation-max-vertical-distance: 1.25
+    antikb-final-snap-distance: 0.20
+    antikb-hard-teleport-confidence: 0.97
+    antikb-hard-teleport-outside: 0.70
+  velocity:
+    prediction-ticks: 8
+    horizontal-tolerance: 0.18
+    vertical-tolerance: 0.14
+    min-track-horizontal: 0.06
+    min-track-vertical: 0.08
+    evaluation-window-base-ms: 320
+    evaluation-window-ping-factor: 0.25
+    evaluation-window-max-ms: 550
+    physics:
+      strafe-input-scale: 0.92
+      backward-input-scale: 0.88
+      forward-diagonal-input-scale: 0.96
+      counter-input-scale: 0.78
+    jump-reset-window-ms: 220
+    combat-velocity-ms: 350
+    min-expected-vertical: 0.12
+    min-vertical-ratio: 0.22
+    base-min-vertical: 0.04
+    min-expected-horizontal: 0.12
+    min-horizontal-ratio: 0.38
+    base-min-horizontal: 0.04
+    min-projected-ratio: 0.24
+    base-min-projected: 0.03
+    min-forward-check-horizontal: 0.09
+    reverse-dot-threshold: -0.35
+    min-reverse-speed: 0.08
+    min-impossible-ticks: 2
+    blatant-outside-blocks: 0.35
+    min-setback-confidence: 0.80
+    attack-reset-window-ms: 175
+    blockhit-reset-window-ms: 225
+    attack-reset-horizontal-factor: 0.88
+    blockhit-reset-horizontal-factor: 0.82
+    combined-reset-horizontal-factor: 0.94
+    attack-reset-projected-factor: 0.90
+    blockhit-reset-projected-factor: 0.84
+    combined-reset-projected-factor: 0.94
+    combat-input-setback-factor: 0.78
+    physics:
+      sprint-assist: 0.06
+      jump-velocity: 0.42
+      counter-input: 0.20
+      ground-acceleration: 0.10
+      air-acceleration: 0.02
+      sneak-multiplier: 0.30
+scaffold-analysis:
+  low-move-threshold: 0.05
+  bridge-movement-grace-ms: 900
+  bridge-max-horizontal-offset: 0.40
+  bridge-max-offset: 0.45
+  bridge-max-horizontal: 0.58
+
+spider-analysis:
+  min-ascend-dy: 0.05
+  post-jump-grace-ms: 150
+  min-vertical-offset: 0.035
+  packet-history:
+    support-history-ms: 350
+  edge-stand:
+    fraction-threshold: 0.10
+    max-above-block: 0.62
+    support-half-width: 0.30
+    face-expand-bonus: 0.22
+    min-lenient-aim-dot: 0.12
+  face:
+    expand: 0.12
+    reach: 4.25
+    ray-step: 0.08
+  tower:
+    max-move-h: 0.18
+  extension:
+    min-placed-h: 1.05
+    min-support-h: 0.95
+    min-move-h: 0.12
+    max-behind-dot: -0.2
+    min-placed-below: 0.7
+  close-build:
+    max-move-h: 0.24
+    max-support-h: 1.1
+    max-placed-h: 1.35
+    min-aim-dot: 0.5
+    max-eye-placed: 4.25
+    max-placed-below: 1.45
+    max-behind-dot: -0.18
+    grounded-max-move-h: 0.38
+    grounded-max-support-h: 1.28
+    grounded-max-placed-h: 1.55
+    grounded-min-aim-dot: 0.25
+    grounded-generic-max-move-h: 0.72
+    grounded-generic-max-support-h: 1.65
+    grounded-generic-max-placed-h: 1.85
+    grounded-generic-min-aim-dot: -0.1
+    grounded-generic-max-behind-dot: -0.45
+    grounded-generic-max-placed-below: 1.25
+  jump-build:
+    max-move-h: 0.55
+    max-support-h: 1.35
+    max-placed-h: 1.7
+    min-aim-dot: 0.18
+    max-placed-below: 2.0
+  combat-build:
+    max-move-h: 0.55
+    max-support-h: 1.45
+    max-placed-h: 1.8
+    min-aim-dot: 0.05
+    max-placed-below: 2.0
+  speed-bridge:
+    max-move-h: 0.42
+    max-support-h: 1.15
+    max-placed-h: 1.45
+    min-aim-dot: 0.28
+    max-behind-dot: -0.72
+    max-placed-below: 1.45
+  grounded-bridge:
+    max-move-h: 0.52
+    max-support-h: 1.25
+    max-placed-h: 1.55
+    min-aim-dot: 0.1
+    max-behind-dot: -0.82
+    max-placed-below: 1.55
+  edge-bridge:
+    max-move-h: 0.48
+    max-support-h: 1.35
+    max-placed-h: 1.65
+    min-aim-dot: 0.08
+    max-behind-dot: -0.88
+    max-placed-below: 1.65
+  extension-bridge:
+    min-bridge-pitch: 10.0
+    min-placed-h: 0.85
+    max-behind-dot: -0.15
+    min-aim-dot: 0.06
+    max-move-h: 0.55
+# Ban ladder, banwave, and evidence scoring (check VL thresholds are in checks.yml)
+punish:
+  enabled: true  # false = flag only, no bans
+  ban-vl: 25   # Total VL before punishment ladder runs
+  mode: CHECK
+  execution:
+    type: BANWAVE
+    auto-banwave:
+      enabled: true
+      interval-seconds: 30
+      min-delay-seconds: 900
+      max-delay-seconds: 7200
+      batch-size: 8
+    hybrid:
+      enabled: true
+      blatant-vl: 35
+      window-seconds: 180
+      min-flags: 6
+      min-hot-checks: 1
+      min-check-vl: 10.0
+      blatant-bed-nuker:
+        enabled: true
+        incidents: 2
+        window-seconds: 120
+        dedupe-ms: 3000
+  evidence:
+    mark-score: 8.0
+    queue-score: 12.0
+    recent-window-seconds: 600
+    multi-check-bonus: 1.75
+    triple-check-bonus: 2.5
+    global-vl: 35
+    global-bonus: 1.5
+    marked-bonus: 1.75
+    fast-flags:
+      count: 6
+      window-seconds: 90
+      bonus: 2.5
+    default: MEDIUM
+    confidence:
+      HIGH:
+        min-check-vl: 5.0
+        score: 4.75
+        max-contribution: 9.5
+      MEDIUM:
+        min-check-vl: 7.5
+        score: 3.0
+        max-contribution: 6.0
+      LOW:
+        min-check-vl: 10.0
+        score: 1.75
+        max-contribution: 3.5
+    categories:
+      REACH: HIGH
+      BACKTRACK: HIGH
+      LAGRANGE: HIGH
+      SIMULATION: HIGH
+      FLY: HIGH
+      NUKER: HIGH
+      KILLAURA: MEDIUM
+      SCAFFOLD: MEDIUM
+      ANTIKB: MEDIUM
+      VELOCITY: MEDIUM
+      SPEED: MEDIUM
+      PHASE: MEDIUM
+      BADPACKETS: MEDIUM
+      AIMASSIST: LOW
+      AUTOCLICK: LOW
+      TIMER: LOW
+      NOROTATION: LOW
+      BLINK: LOW
+      INVENTORY: LOW
+      BEDWARS: HIGH
+      MISC: MEDIUM
+    overrides:
+      ReachA: HIGH
+      ReachB: HIGH
+      ReachC: MEDIUM
+      BackTrackA: HIGH
+      LagrangeA: HIGH
+      LagrangeB: HIGH
+      FlyA: HIGH
+      FlyB: HIGH
+      FlyC: HIGH
+      FlyD: HIGH
+      FlyE: HIGH
+      ScaffoldA: MEDIUM
+      ScaffoldB: MEDIUM
+      ScaffoldC: MEDIUM
+      ScaffoldD: MEDIUM
+      ScaffoldE: MEDIUM
+      ScaffoldF: HIGH
+      ScaffoldG: MEDIUM
+      KillAura: MEDIUM
+      KillAuraA: MEDIUM
+      KillAuraB: MEDIUM
+      KillAuraC: MEDIUM
+      KillAuraD: LOW
+      KillAuraG: MEDIUM
+      KillAuraH: MEDIUM
+      AimAssistA: LOW
+      AimAssistB: LOW
+      AimAssistC: LOW
+      AutoClickA: LOW
+      AutoClickB: LOW
+      AutoClickC: LOW
+  ladder:
+    '1':
+      type: TEMP
+      duration: 30d
+    '2':
+      type: TEMP
+      duration: 90d
+    '3':
+      type: TEMP
+      duration: 365d
+    '4':
+      type: PERM
+  watchdog:
+    reason: Cheating through the use of unfair game advantages.
+    appeal-url: https://www.hypixel.net/appeal
+    broadcast: '&cWatchdog has banned {player} for cheating!'
+    remove-message: '&eA player has been removed from your game.'
+  reasons:
+    REACH: Cheating
+    BACKTRACK: Cheating
+    LAGRANGE: Cheating
+    SIMULATION: Cheating
+    KILLAURA: Cheating
+    ANTIKB: Cheating
+    VELOCITY: Cheating
+    AUTOCLICK: Cheating
+    AIMASSIST: Cheating
+    CRITICALS: Cheating
+    FLY: Cheating
+    SPEED: Cheating
+    STEP: Cheating
+    NOFALL: Cheating
+    JESUS: Cheating
+    PHASE: Cheating
+    GROUNDSPOOF: Cheating
+    SCAFFOLD: Cheating
+    INVENTORY: Cheating
+    FASTBOW: Cheating
+    FASTEATA: Cheating
+    TIMER: Cheating
+    NOROTATION: Cheating
+    BLINK: Cheating
+    BADPACKETS: Cheating
+    NOSLOW: Cheating
+    PIERCING: Cheating
+    MISC: Cheating
+  commands:
+    tempban: tempban {player} {time} {timeform} {reason}
+    permban: ban {player} {reason}
+# Violation level decay over time (VL is per-check; see checks.yml vl per flag)
+vl:
+  decay-grace-ms: 15000           # No decay until this long after last flag
+  decay-per-second: 0.12          # Per-check VL decay rate
+  global-decay-per-second: 0.03   # Total VL decay rate
+  decay-min-interval-ms: 250      # Min ms between decay ticks

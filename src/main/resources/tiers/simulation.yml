@@ -1,0 +1,198 @@
+tiers-version: 1
+
+defaults:
+  tier: SIMULATION
+  enabled: true
+  shadow: false
+  punishVl: 90
+  failWeight: 0.5
+  bufferToFlag: 5
+  decay: 0.15
+  setbackEnabled: true
+
+SimulationOffsetHorizontal:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: false
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.20
+
+SimulationOffsetVertical:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: false
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.22
+
+SimulationKnockback:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  minKnockbackRatio: 0.55
+  threshold: 0.08
+  animateOnFlag: true
+
+SimulationExplosion:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  minExplosionRatio: 0.5
+  threshold: 0.08
+
+SimulationNoSlow:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.04
+
+SimulationSprint:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.12
+
+SimulationSneak:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.04
+
+SimulationFriction:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.06
+
+SimulationJump:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: false
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.18
+  minRise: 0.10
+
+SimulationLiquid:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.08
+
+SimulationClimbable:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 4
+  failVl: 0.75
+  threshold: 0.06
+  ladderLegitMaxDy: 0.22
+  ladderLegitMaxVOff: 0.12
+  ladderBlatantDy: 0.28
+
+SimulationSpider:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  minStreak: 3
+  minOffset: 0.04
+  minVerticalOffset: 0.035
+
+SimulationWeb:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.06
+
+SimulationEntityPush:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.05
+
+SimulationIce:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.06
+
+SimulationSlime:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  threshold: 0.08
+
+SimulationBlinkDebt:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: false
+  bufferToFlag: 5
+  failVl: 0.75
+  gapMs: 320
+  offsetThreshold: 0.28
+  timerDebtMs: 280.0
+
+SimulationSetbackRecovery:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: false
+  bufferToFlag: 5
+  failVl: 0.75
+  graceMs: 350
+  maxTargetDistance: 2.5
+  recoveryWindowMs: 2000
+  threshold: 0.22
+
+SimulationCombo:
+  tier: SIMULATION
+  punishVl: 90
+  failWeight: 0.5
+  setbackEnabled: true
+  bufferToFlag: 5
+  failVl: 0.75
+  minFamilies: 3
+  offsetThreshold: 0.06
+  publicFlag: True

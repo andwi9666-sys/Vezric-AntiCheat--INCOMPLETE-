@@ -1,0 +1,40 @@
+name: VezAntiCheat
+version: '${project.version}'
+main: com.colin.vezanticheat.VezAntiCheat
+api-version: '1.8'
+# PacketEvents must own Netty injection — do not call setAPI/init from this plugin when using depend.
+depend: [packetevents]
+softdepend: [Vulcan, ProtocolLib, ProtocolSupport, ViaVersion, ViaBackwards, ViaRewind, Geyser-Spigot]
+commands:
+  vez:
+    description: Main VezAntiCheat command
+    usage: ''
+    aliases: [watchdog, wd]
+  alerts:
+    description: Toggle anticheat alerts
+    usage: ''
+    permission: vez.staff
+  flags:
+    description: Open Polar-style flag history or toggle alerts
+    usage: ''
+    permission: vez.staff
+  banwave:
+    description: Banwave management
+    usage: ''
+    permission: vez.admin
+permissions:
+  vez.admin:
+    description: Full admin access
+    default: op
+  vez.staff:
+    description: Staff alerts access
+    default: op
+  watchdog.staff:
+    description: Staff combat analysis alerts and debug command
+    default: op
+  vez.bypass:
+    description: Bypass all checks
+    default: false
+  watchdog.bypass:
+    description: Bypass all checks (Watchdog alias)
+    default: false

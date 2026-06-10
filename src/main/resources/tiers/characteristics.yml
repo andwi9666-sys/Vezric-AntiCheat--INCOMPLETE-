@@ -1,0 +1,102 @@
+tiers-version: 2
+
+defaults:
+  tier: CHARACTERISTICS
+  enabled: true
+  shadow: false
+  punishVl: 25
+  failWeight: 1.0
+  bufferToFlag: 4
+  decay: 0.15
+  setbackEnabled: false
+
+CharSilentAim:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+  combatMitigation: true
+
+CharAimSnap:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+  combatMitigation: true
+
+CharAimReset:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+  combatMitigation: true
+
+CharAimCorrelation:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+  combatMitigation: true
+
+CharAimCenter:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+  combatMitigation: true
+
+CharTimerLegacy:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+
+CharVelocityPattern:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+  animateOnFlag: true
+
+CharCombatTiming:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+  combatMitigation: true
+
+CharAimAssistA:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+
+CharAimAssistB:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+
+CharAimAssistC:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+
+CharCriticalsA:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+
+CharCriticalsB:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3
+
+CharCriticalsC:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 3

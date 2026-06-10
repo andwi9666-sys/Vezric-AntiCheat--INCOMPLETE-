@@ -1,0 +1,1707 @@
+# =============================================================================
+# VezAntiCheat — Check Tuning (checks.yml)
+# =============================================================================
+# Edit per-check sensitivity here. Reload with /vez reload.
+#
+# QUICK GUIDE (every check can use these keys):
+#   enabled        — true/false master switch
+#   shadow         — true = detect & log only, no punish (use while tuning)
+#   vl             — violation level per flag (higher = faster bans)
+#   bufferToFlag   — evidence before flag (HIGHER = fewer false positives)
+#
+# Missing keys inherit from defaults: below.
+# Tune live: /vez tune <CheckName> <key> [value]
+# =============================================================================
+
+checks-version: 4
+
+defaults:
+  enabled: true              # Master switch for checks that omit this key
+  shadow: false              # true = tuning mode (no punishments)
+  vl: 1.0                    # Default VL added per flag
+  bufferToFlag: 4            # Default buffer before flagging (HIGHER = fewer FPs)
+  setbackEnabled: true       # Teleport back on flag when supported
+  setbackCooldownMs: 0       # Deprecated — setbacks fire every invalid packet (no cooldown)
+  debug: false               # Verbose logging for this check
+  useSimulationFallback: true  # Legacy speed checks: confirm via simulation first
+
+
+# =============================================================================
+# COMBAT — KillAura
+# =============================================================================
+
+# --- KillAuraA: Silent aura / post-hit rotation anomalies. ---
+KillAuraA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  switchResetMs: 1200  # Time window in milliseconds
+  switchWindowMs: 260  # Time window in milliseconds
+  switchPrecisionGain: 1  # Check-specific tuning value
+  switchNormalGain: 2  # Check-specific tuning value
+  minSwitchWeight: 0.42  # Bound/limit for this check
+  switchBufferToFlag: 2  # Check-specific tuning value
+  timingHistorySize: 20  # Check-specific tuning value
+  timingPruneWindowMs: 2000  # Time window in milliseconds
+  timingWindowMs: 2000  # Time window in milliseconds
+  timingMinSamples: 7  # Check-specific tuning value
+  timingMinIntervals: 4  # Check-specific tuning value
+  timingMaxIntervalMs: 500  # Time window in milliseconds
+  timingMinMeanMs: 25.0  # Time window in milliseconds
+  timingMaxMeanMs: 200.0  # Time window in milliseconds
+  timingMinWeight: 0.52  # Check-specific tuning value
+  timingMaxCV: 0.14  # Check-specific tuning value
+  timingMaxStd: 16.0  # Check-specific tuning value
+  maxClickStdMs: 8.0  # Time window in milliseconds
+  timingExtraClickStdMs: 4.0  # Time window in milliseconds
+  varianceDropPrevCvMin: 0.15  # Check-specific tuning value
+  varianceDropCvMax: 0.06  # Check-specific tuning value
+  varianceDropMinMeanMs: 30.0  # Time window in milliseconds
+  varianceDropMaxMeanMs: 120.0  # Time window in milliseconds
+
+# --- KillAuraB: Multi-target switching patterns. ---
+KillAuraB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  bufferHalveResetMs: 3000  # Time window in milliseconds
+  bufferClearResetMs: 2000  # Time window in milliseconds
+  minDot: 0.7  # Bound/limit for this check
+  maxAngle: 24.0  # Bound/limit for this check
+  closeRangeBypass: 1.1  # Check-specific tuning value
+  rewindBaseMs: 60  # Lag-compensation rewind base (ms) added to ping-scaled window.
+  rewindPingFactor: 0.2  # Ping multiplier for rewind window (ms per ping point).
+  maxRewindMs: 140  # Cap on lag-compensation rewind (ms).
+  minSampleWeight: 0.4  # Combat sample quality 0–1; below this skips the hit.
+  blatantMinWeight: 0.5  # Check-specific tuning value
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  packetCancelMinBuffer: 2  # Check-specific tuning value
+  packetCancelMinSampleWeight: 0.60  # Check-specific tuning value
+  packetCancelMinDot: 0.54  # Check-specific tuning value
+  packetCancelMinAngle: 34.0  # Check-specific tuning value
+
+# --- KillAuraC: Aim snap on attack. ---
+KillAuraC:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  bufferToFlag: 6  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- KillAuraD: Engine-backed aim geometry. ---
+KillAuraD:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  minSnapYaw: 70.0  # Bound/limit for this check
+  blatantSnapYaw: 120.0  # Check-specific tuning value
+  maxPitchStep: 15.0  # Bound/limit for this check
+  maxSnapToAttackMs: 50  # Time window in milliseconds
+  maxPostSnapAngle: 1.5  # Bound/limit for this check
+  blatantMaxPostSnapAngle: 0.8  # Check-specific tuning value
+  minDistance: 1.5  # Min reach (blocks) — closer hits skip ray/hitbox tests.
+  historyWindowMs: 150  # Time window in milliseconds
+  minHistorySamples: 3  # Bound/limit for this check
+  rewindBaseMs: 60  # Lag-compensation rewind base (ms) added to ping-scaled window.
+  rewindPingFactor: 0.20  # Ping multiplier for rewind window (ms per ping point).
+  maxRewindMs: 160  # Cap on lag-compensation rewind (ms).
+  bufferToFlag: 6  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  bufferResetMs: 2500  # Ms without violations before buffer resets to zero.
+
+# --- KillAuraE: Hit ratio / center mass. ---
+KillAuraE:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.5  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  aggregateWindowMs: 3000  # Time window in milliseconds
+  aggregateFamilyCooldownMs: 150  # Time window in milliseconds
+  aggregateStateMinGapMs: 250  # Time window in milliseconds
+  aggregateCooldownStateMinGapMs: 125  # Time window in milliseconds
+  aggregateFamilyMaxContribution: 4  # Check-specific tuning value
+  aggregateMaxBuffer: 8  # Check-specific tuning value
+  aggregateCandidateBuffer: 1  # Check-specific tuning value
+  aggregateBufferToPressure: 2  # Check-specific tuning value
+  aggregateMinFamilies: 1  # Check-specific tuning value
+  aggregateBufferToFlag: 2  # Check-specific tuning value
+  aggregateMinFamiliesToFlag: 1  # Check-specific tuning value
+  aggregateSoloBufferToFlag: 2  # Check-specific tuning value
+  aggregateSilentMinBuffer: 3  # Check-specific tuning value
+  aggregateSilentMinFamilies: 1  # Check-specific tuning value
+  aggregateSilentMinAimScore: 1  # Check-specific tuning value
+  aggregateSilentMinSnapScore: 1  # Check-specific tuning value
+  aggregateSilentRearmMs: 150  # Time window in milliseconds
+  aggregateSilentExistingDropStateMinGapMs: 125  # Time window in milliseconds
+
+# --- KillAuraF: Aim vs hitbox alignment (feeder). ---
+KillAuraF:
+  enabled: true  # Master switch — false disables this check entirely.
+  standalone: false  # true = flags alone; false = feeds aggregate check only.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  stateResetMs: 2500  # Time window in milliseconds
+  minIntervalMs: 60  # Time window in milliseconds
+  maxIntervalMs: 450  # Time window in milliseconds
+  minTargetMove: 0.10  # Bound/limit for this check
+  maxAttackYawStep: 1.6  # Bound/limit for this check
+  maxAttackPitchStep: 1.05  # Bound/limit for this check
+  maxCenterAngle: 1.10  # Bound/limit for this check
+  maxCenterMargin: 0.18  # Bound/limit for this check
+  minLookDot: 0.990  # Bound/limit for this check
+  minSampleWeight: 0.52  # Combat sample quality 0–1; below this skips the hit.
+  blatantTargetMove: 0.20  # Check-specific tuning value
+  blatantMaxYawStep: 0.95  # Check-specific tuning value
+  blatantMaxPitchStep: 0.60  # Check-specific tuning value
+  blatantMaxCenterAngle: 0.70  # Check-specific tuning value
+  blatantMaxCenterMargin: 0.10  # Check-specific tuning value
+  blatantMinLookDot: 0.994  # Check-specific tuning value
+  blatantMinWeight: 0.60  # Check-specific tuning value
+  bufferToFlag: 5  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  packetCancelMinBuffer: 5  # Check-specific tuning value
+  packetCancelMinTargetMove: 0.24  # Check-specific tuning value
+
+# --- KillAuraG: Rotation delta patterns (feeder). ---
+KillAuraG:
+  enabled: true  # Master switch — false disables this check entirely.
+  standalone: false  # true = flags alone; false = feeds aggregate check only.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  failVl: 1.0  # VL weight when this prediction check flags.
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  maxDeltaDeg: 45.0  # Bound/limit for this check
+  minLearnedGcd: 0.0015  # Bound/limit for this check
+  combatWindowMs: 3000  # Time window in milliseconds
+  windowSize: 40  # Check-specific tuning value
+  severeRatioThreshold: 0.30  # Threshold — raise to reduce false positives
+  suspectRatioThreshold: 0.45  # Threshold — raise to reduce false positives
+  goodRatioThreshold: 0.60  # Threshold — raise to reduce false positives
+  bufferToFlag: 8  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- KillAuraH: Aggregate killaura corroboration. ---
+KillAuraH:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 2.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  aggregateBufferToFlag: 5  # Check-specific tuning value
+  aggregateMinFamilies: 2  # Check-specific tuning value
+  soloBufferToFlag: 9  # Buffer needed when only one simulation source fired (raise for lenience).
+  silentEscalationAimMin: 4  # Check-specific tuning value
+  silentEscalationSecondaryMin: 2  # Check-specific tuning value
+
+# =============================================================================
+# COMBAT — Reach / Hitbox / BackTrack
+# =============================================================================
+
+# --- ReachA: Primary reach distance check. ---
+ReachA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 180  # Max ms since attack packet — ignore stale attacks.
+  max: 3.0  # Bound/limit for this check
+  baseTolerance: 0.15  # Threshold — raise to reduce false positives
+  pingToleranceFactor: 6.0E-4  # Ratio or scale factor
+  maxPingTolerance: 0.20  # Threshold — raise to reduce false positives
+  sprintTolerance: 0.06  # Threshold — raise to reduce false positives
+  airTolerance: 0.04  # Threshold — raise to reduce false positives
+  sprintBonus: 0.05  # Check-specific tuning value
+  attackerMoveWindowMs: 600  # Time window in milliseconds
+  attackerMoveTolerance: 0.10  # Threshold — raise to reduce false positives
+  rewindBaseMs: 100  # Lag-compensation rewind base (ms) added to ping-scaled window.
+  rewindPingFactor: 0.4  # Ping multiplier for rewind window (ms per ping point).
+  maxRewindMs: 350  # Cap on lag-compensation rewind (ms).
+  bufferToFlag: 5  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  comboWindowMs: 800  # Time window in milliseconds
+  comboTolerance: 0.30  # Threshold — raise to reduce false positives
+  comboPerfectHitTolerance: 0.14  # Threshold — raise to reduce false positives
+  comboMinDisplacement: 0.24  # Check-specific tuning value
+  comboMinShift: 0.09  # Check-specific tuning value
+  comboSoftOver: 0.08  # Check-specific tuning value
+  parryTolerance: 0.05  # Threshold — raise to reduce false positives
+  quarterSelectTolerance: 0.07  # Threshold — raise to reduce false positives
+  deepSelectTolerance: 0.12  # Threshold — raise to reduce false positives
+  tripleHitTolerance: 0.06  # Threshold — raise to reduce false positives
+  spacingTolerance: 0.07  # Threshold — raise to reduce false positives
+  dirtySampleTolerance: 0.14  # Threshold — raise to reduce false positives
+  lagCoverCurrentMargin: 0.10  # Check-specific tuning value
+  lagCoverShiftMin: 0.15  # Check-specific tuning value
+  lagCoverAgeMinMs: 95  # Time window in milliseconds
+  lagCoverBufferToFlag: 4  # Check-specific tuning value
+  lagCoverLowerBufferScore: 2.0  # Check-specific tuning value
+  packetCancelMinOver: 0.16  # Check-specific tuning value
+  packetCancelMinBuffer: 5  # Check-specific tuning value
+  packetCancelMinSampleWeight: 0.65  # Check-specific tuning value
+
+# --- ReachB: Secondary reach pattern. ---
+ReachB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 180  # Max ms since attack packet — ignore stale attacks.
+  max: 3.0  # Bound/limit for this check
+  baseTolerance: 0.12  # Threshold — raise to reduce false positives
+  pingToleranceFactor: 5.5E-4  # Ratio or scale factor
+  maxPingTolerance: 0.18  # Threshold — raise to reduce false positives
+  hardMargin: 0.12  # Check-specific tuning value
+  sprintBonus: 0.06  # Check-specific tuning value
+  attackerMoveWindowMs: 600  # Time window in milliseconds
+  attackerMoveTolerance: 0.10  # Threshold — raise to reduce false positives
+  rewindBaseMs: 100  # Lag-compensation rewind base (ms) added to ping-scaled window.
+  rewindPingFactor: 0.35  # Ping multiplier for rewind window (ms per ping point).
+  maxRewindMs: 320  # Cap on lag-compensation rewind (ms).
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  comboWindowMs: 800  # Time window in milliseconds
+  comboTolerance: 0.28  # Threshold — raise to reduce false positives
+  comboPerfectHitTolerance: 0.12  # Threshold — raise to reduce false positives
+  comboMinDisplacement: 0.24  # Check-specific tuning value
+  comboMinShift: 0.09  # Check-specific tuning value
+  comboSoftOver: 0.07  # Check-specific tuning value
+  parryTolerance: 0.05  # Threshold — raise to reduce false positives
+  quarterSelectTolerance: 0.07  # Threshold — raise to reduce false positives
+  deepSelectTolerance: 0.12  # Threshold — raise to reduce false positives
+  tripleHitTolerance: 0.06  # Threshold — raise to reduce false positives
+  spacingTolerance: 0.07  # Threshold — raise to reduce false positives
+  dirtySampleTolerance: 0.14  # Threshold — raise to reduce false positives
+  packetCancelMinOver: 0.18  # Check-specific tuning value
+  packetCancelMinBuffer: 3  # Check-specific tuning value
+  packetCancelMinSampleWeight: 0.70  # Check-specific tuning value
+
+# --- ReachC: Statistical reach average. ---
+ReachC:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 180  # Max ms since attack packet — ignore stale attacks.
+  max: 3.10  # Bound/limit for this check
+  baseTolerance: 0.07  # Threshold — raise to reduce false positives
+  pingToleranceFactor: 5.0E-4  # Ratio or scale factor
+  maxPingTolerance: 0.16  # Threshold — raise to reduce false positives
+  sprintBonus: 0.05  # Check-specific tuning value
+  attackerMoveWindowMs: 600  # Time window in milliseconds
+  attackerMoveTolerance: 0.08  # Threshold — raise to reduce false positives
+  rewindBaseMs: 100  # Lag-compensation rewind base (ms) added to ping-scaled window.
+  rewindPingFactor: 0.4  # Ping multiplier for rewind window (ms per ping point).
+  maxRewindMs: 350  # Cap on lag-compensation rewind (ms).
+  sampleWindow: 10  # Check-specific tuning value
+  violationsToFlag: 5  # Consecutive bad windows before flag (statistical checks).
+  minAverageOver: 0.09  # Bound/limit for this check
+  comboWindowMs: 800  # Time window in milliseconds
+  comboTolerance: 0.24  # Threshold — raise to reduce false positives
+  parryTolerance: 0.04  # Threshold — raise to reduce false positives
+  quarterSelectTolerance: 0.06  # Threshold — raise to reduce false positives
+  deepSelectTolerance: 0.1  # Threshold — raise to reduce false positives
+  tripleHitTolerance: 0.05  # Threshold — raise to reduce false positives
+  spacingTolerance: 0.06  # Threshold — raise to reduce false positives
+  dirtySampleTolerance: 0.18  # Threshold — raise to reduce false positives
+  packetCancelMinCurrentOver: 0.11  # Check-specific tuning value
+  packetCancelMinViolations: 5  # Check-specific tuning value
+  packetCancelMinAverageOver: 0.09  # Check-specific tuning value
+  packetCancelMinSampleWeight: 0.72  # Check-specific tuning value
+
+# --- HitboxA: Per-hit ray vs hitbox (flick/KB aware). ---
+HitboxA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  bufferToFlag: 5  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  bufferResetMs: 3000  # Ms without violations before buffer resets to zero.
+  minDistance: 1.0  # Min reach (blocks) — closer hits skip ray/hitbox tests.
+  minSampleWeight: 0.40  # Combat sample quality 0–1; below this skips the hit.
+  vanillaExpansion: 0.1  # Extra lenience (blocks or ms)
+  maxPingExpansion: 0.15  # Extra lenience (blocks or ms)
+  pingExpansionFactor: 8.0E-4  # Ratio or scale factor
+  sprintExpansion: 0.03  # Extra lenience (blocks or ms)
+  comboExpansion: 0.05  # Extra lenience (blocks or ms)
+  graceThreshold: 0.08  # Miss distance (blocks) treated as acceptable noise.
+  blatantMissDistance: 0.45  # Check-specific tuning value
+  suspiciousMissDistance: 0.18  # Check-specific tuning value
+  maxRayDistance: 6.0  # Bound/limit for this check
+  rewindBaseMs: 80  # Lag-compensation rewind base (ms) added to ping-scaled window.
+  rewindPingFactor: 0.35  # Ping multiplier for rewind window (ms per ping point).
+  maxRewindMs: 200  # Cap on lag-compensation rewind (ms).
+  flickYawThreshold: 10.0  # Threshold — raise to reduce false positives
+  flickPitchThreshold: 7.0  # Threshold — raise to reduce false positives
+  flickRotationMaxAgeMs: 100  # Time window in milliseconds
+  alternateLookMinYawDelta: 6.0  # Check-specific tuning value
+  flickMissFactor: 0.004  # Ratio or scale factor
+  flickMissCap: 0.35  # Check-specific tuning value
+  attackerKnockbackExpansion: 0.14  # Extra lenience (blocks or ms)
+  targetKnockbackExpansion: 0.20  # Extra lenience (blocks or ms)
+  velocityExemptExpansion: 0.10  # Extra lenience (blocks or ms)
+  attackerAirborneExpansion: 0.05  # Extra lenience (blocks or ms)
+  targetAirborneExpansion: 0.10  # Extra lenience (blocks or ms)
+  tradeComboExpansion: 0.04  # Extra lenience (blocks or ms)
+  jumpResetExpansion: 0.05  # Extra lenience (blocks or ms)
+
+# --- HitboxB: Statistical hitbox miss ratio. ---
+HitboxB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.2  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  minDistance: 1.2  # Min reach (blocks) — closer hits skip ray/hitbox tests.
+  vanillaExpansion: 0.1  # Extra lenience (blocks or ms)
+  maxPingExpansion: 0.12  # Extra lenience (blocks or ms)
+  pingExpansionFactor: 6.0E-4  # Ratio or scale factor
+  graceThreshold: 0.03  # Miss distance (blocks) treated as acceptable noise.
+  missRatioThreshold: 0.55  # Threshold — raise to reduce false positives
+  avgMissThreshold: 0.10  # Threshold — raise to reduce false positives
+  minSamples: 8  # Minimum hits in window before evaluation.
+  maxSamples: 15  # Bound/limit for this check
+  windowMs: 8000  # Time window in milliseconds
+  violationsToFlag: 2  # Consecutive bad windows before flag (statistical checks).
+  rewindBaseMs: 80  # Lag-compensation rewind base (ms) added to ping-scaled window.
+  rewindPingFactor: 0.35  # Ping multiplier for rewind window (ms per ping point).
+  maxRewindMs: 200  # Cap on lag-compensation rewind (ms).
+  flickYawThreshold: 10.0  # Threshold — raise to reduce false positives
+  flickPitchThreshold: 7.0  # Threshold — raise to reduce false positives
+  flickRotationMaxAgeMs: 100  # Time window in milliseconds
+  alternateLookMinYawDelta: 6.0  # Check-specific tuning value
+  flickMissFactor: 0.004  # Ratio or scale factor
+  flickMissCap: 0.30  # Check-specific tuning value
+  attackerKnockbackExpansion: 0.12  # Extra lenience (blocks or ms)
+  targetKnockbackExpansion: 0.18  # Extra lenience (blocks or ms)
+  velocityExemptExpansion: 0.08  # Extra lenience (blocks or ms)
+  attackerAirborneExpansion: 0.04  # Extra lenience (blocks or ms)
+  targetAirborneExpansion: 0.08  # Extra lenience (blocks or ms)
+  tradeComboExpansion: 0.03  # Extra lenience (blocks or ms)
+  jumpResetExpansion: 0.04  # Extra lenience (blocks or ms)
+
+# --- BackTrackA: Stale position / packet lag reach. ---
+BackTrackA:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: false  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  maxPacketAgeMs: 220  # Time window in milliseconds
+  dedupeMs: 18  # Time window in milliseconds
+  max: 3.16  # Bound/limit for this check
+  currentSlack: 0.18  # Extra lenience (blocks or ms)
+  historicalSlack: 0.12  # Extra lenience (blocks or ms)
+  minExcessRewindMs: 55  # Time window in milliseconds
+  blatantExcessRewindMs: 120  # Time window in milliseconds
+  minDisplacement: 0.26  # Bound/limit for this check
+  minShift: 0.18  # Bound/limit for this check
+  edgeShiftThreshold: 0.12  # Threshold — raise to reduce false positives
+  rewindBaseMs: 95  # Lag-compensation rewind base (ms) added to ping-scaled window.
+  rewindPingFactor: 0.25  # Ping multiplier for rewind window (ms per ping point).
+  maxRewindMs: 190  # Cap on lag-compensation rewind (ms).
+  extraHistoryMs: 160  # Time window in milliseconds
+  attackerPacketGapMs: 110  # Time window in milliseconds
+  targetPacketGapMs: 150  # Time window in milliseconds
+  attackWithoutMoveMs: 90  # Time window in milliseconds
+  attackWithoutRotateMs: 120  # Time window in milliseconds
+  suddenPingChange: 35  # Check-specific tuning value
+  maxLegitPingForDelay: 170  # Bound/limit for this check
+  lowPingExtraAgeMs: 70  # Time window in milliseconds
+  historySize: 7  # Check-specific tuning value
+  timingHistorySize: 7  # Check-specific tuning value
+  orderHistorySize: 7  # Check-specific tuning value
+  pingHistorySize: 6  # Check-specific tuning value
+  ageHistorySize: 6  # Check-specific tuning value
+  minStaleRatio: 0.5  # Bound/limit for this check
+  minTimingRatio: 0.42  # Bound/limit for this check
+  minOrderRatio: 0.42  # Bound/limit for this check
+  minPingAnomalyRatio: 0.38  # Bound/limit for this check
+  minHistoryRatio: 0.6  # Bound/limit for this check
+  meanAgeOverMs: 25  # Time window in milliseconds
+  maxBuffer: 9  # Bound/limit for this check
+  bufferToFlag: 6  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  packetCancelMaxPing: 185  # Check-specific tuning value
+  packetCancelMinBuffer: 5  # Check-specific tuning value
+  packetCancelMinWeight: 4  # Check-specific tuning value
+  packetCancelMinSignals: 2  # Check-specific tuning value
+  packetCancelMinTimingRatio: 0.55  # Ratio or scale factor
+  packetCancelMinOrderRatio: 0.55  # Ratio or scale factor
+  packetCancelMinExcessRewindMs: 55  # Time window in milliseconds
+  packetCancelMinCurrentOver: 0.26  # Check-specific tuning value
+  packetCancelMinShift: 0.24  # Check-specific tuning value
+  packetCancelMinDisplacement: 0.28  # Check-specific tuning value
+  packetCancelMinComboWeight: 5  # Check-specific tuning value
+  comboWindowMs: 800  # Time window in milliseconds
+  comboTolerance: 0.22  # Threshold — raise to reduce false positives
+  minComboWeight: 3  # Bound/limit for this check
+
+# --- LagrangeA: Combat teleport / lag spoof. ---
+LagrangeA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.1  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 180  # Max ms since attack packet — ignore stale attacks.
+  debug: false  # Verbose console logging for this check.
+  shadow: false  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  failVl: 1.0  # VL weight when this prediction check flags.
+  max: 3.10  # Bound/limit for this check
+  rewindBaseMs: 90  # Lag-compensation rewind base (ms) added to ping-scaled window.
+  rewindPingFactor: 0.30  # Ping multiplier for rewind window (ms per ping point).
+  maxRewindMs: 200  # Cap on lag-compensation rewind (ms).
+  historicalSlack: 0.12  # Extra lenience (blocks or ms)
+  minStaleExcessMs: 35  # Time window in milliseconds
+  minReachShift: 0.14  # Bound/limit for this check
+  minDisplacement: 0.20  # Bound/limit for this check
+  minExpansion: 0.04  # Extra lenience (blocks or ms)
+  edgeReachMin: 3.0  # Check-specific tuning value
+  edgeReachMax: 3.15  # Check-specific tuning value
+  minSignalConfidence: 1.8  # Bound/limit for this check
+  strongHitConfidence: 2.4  # Check-specific tuning value
+  flagConfidence: 4.6  # Check-specific tuning value
+  minStrongHits: 2  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  maxBuffer: 12  # Bound/limit for this check
+  windowMs: 8000  # Time window in milliseconds
+  maxSamples: 12  # Bound/limit for this check
+  clusterWindowMs: 3200  # Time window in milliseconds
+  maxInterSampleGapMs: 1400  # Time window in milliseconds
+  minClusterHits: 2  # Bound/limit for this check
+  cleanHitsToReset: 2  # Check-specific tuning value
+  comboWindowMs: 800  # Time window in milliseconds
+  comboTolerance: 0.22  # Threshold — raise to reduce false positives
+  trustedPingMax: 175  # Check-specific tuning value
+  trustedJitterMax: 20  # Check-specific tuning value
+  minSignalFamilies: 2  # Bound/limit for this check
+  minSampleWeight: 0.40  # Combat sample quality 0–1; below this skips the hit.
+  minTradeWeight: 0.55  # Bound/limit for this check
+  minSelectiveHits: 1  # Bound/limit for this check
+  minTimingHits: 1  # Bound/limit for this check
+  minReachHits: 1  # Bound/limit for this check
+  minSpatialHits: 1  # Bound/limit for this check
+  minSevereHits: 1  # Bound/limit for this check
+  minAverageStaleExcessMs: 40.0  # Time window in milliseconds
+  minSelectiveRatio: 0.30  # Bound/limit for this check
+  teleportWindowMs: 3200  # Time window in milliseconds
+  minTeleportHits: 2  # Bound/limit for this check
+  minTeleportSameTarget: 1  # Bound/limit for this check
+  minTeleportAverageCloseDelta: 1.45  # Bound/limit for this check
+  minTeleportAverageMoveH: 1.35  # Bound/limit for this check
+  teleportScoreBonus: 1.2  # Check-specific tuning value
+  severeStaleExcessMs: 70  # Time window in milliseconds
+  emergencyMinStaleExcessMs: 60  # Time window in milliseconds
+  emergencyMinExpansion: 0.09  # Extra lenience (blocks or ms)
+  noSelectiveLagMultiplier: 0.58  # Check-specific tuning value
+  walkThroughDistance: 0.75  # Check-specific tuning value
+  minOcclusionNeighbors: 5  # Bound/limit for this check
+  losStep: 0.20  # Check-specific tuning value
+  hitboxExpand: 0.12  # Check-specific tuning value
+  endMargin: 0.40  # Check-specific tuning value
+  minBlockedPoints: 6  # Bound/limit for this check
+  lookDotMin: 0.72  # Check-specific tuning value
+  angularErrorMax: 28.0  # Check-specific tuning value
+  weights:
+    staleExcess: 1.25
+    reachShift: 1.0
+    edgeReach: 0.75
+    minExpansion: 0.85
+    burstAttack: 1.1
+    stablePing: 0.9
+    selectiveLag: 0.35
+    losInvalid: 1.2
+    lookInvalid: 0.6
+  # Tuning (shadow:true): watch console [LagrangeA][shadow] logs on live PvP.
+  # Raise minStaleExcessMs / flagConfidence if false positives; set shadow:false when stable.
+
+# --- LagrangeB: Lagrange pattern corroboration. ---
+LagrangeB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  failVl: 1.0  # VL weight when this prediction check flags.
+  packetCancelFailVl: 1.25  # Check-specific tuning value
+  debug: false  # Verbose console logging for this check.
+  shadow: false  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  attackFreshnessMs: 180  # Max ms since attack packet — ignore stale attacks.
+  windowMs: 3500  # Time window in milliseconds
+  minEvents: 2  # Bound/limit for this check
+  minSameTargetEvents: 1  # Bound/limit for this check
+  minAverageCloseDelta: 1.45  # Bound/limit for this check
+  minAverageMoveH: 1.35  # Bound/limit for this check
+  minBestCloseDelta: 1.80  # Bound/limit for this check
+  minTeleportScore: 2.3  # Bound/limit for this check
+  maxEndDistance: 3.7  # Bound/limit for this check
+  flagCooldownMs: 850  # Time window in milliseconds
+  packetCancelMinEvents: 2  # Check-specific tuning value
+  packetCancelMinSameTargetEvents: 1  # Check-specific tuning value
+  packetCancelMinAverageCloseDelta: 1.70  # Check-specific tuning value
+  packetCancelMinAverageMoveH: 1.55  # Check-specific tuning value
+  packetCancelMinBestCloseDelta: 2.10  # Check-specific tuning value
+  packetCancelMinTeleportScore: 3.0  # Check-specific tuning value
+  packetCancelMaxEndDistance: 3.45  # Check-specific tuning value
+  decay: 0.08  # Check-specific tuning value
+  scoreDecay: 0.12  # Check-specific tuning value
+  shadowScoreDecay: 0.35  # Check-specific tuning value
+  postFlagScoreDecay: 0.9  # Check-specific tuning value
+  packetCancelScoreDecay: 1.35  # Check-specific tuning value
+
+# --- PiercingA: Hits through solid blocks. ---
+PiercingA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  minDistance: 1.05  # Min reach (blocks) — closer hits skip ray/hitbox tests.
+  maxDistance: 4.2  # Max reach (blocks) — farther hits ignored by this check.
+  minTradeCleanliness: 0.72  # Bound/limit for this check
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  packetCancelMinBuffer: 4  # Check-specific tuning value
+  packetCancelMinBlockedPoints: 12  # Check-specific tuning value
+  packetCancelMinOcclusionNeighbors: 8  # Check-specific tuning value
+  packetCancelMinBodyOcclusionNeighbors: 3  # Check-specific tuning value
+  step: 0.2  # Check-specific tuning value
+  hitboxExpand: 0.15  # Check-specific tuning value
+  endMargin: 0.4  # Check-specific tuning value
+  minOcclusionNeighbors: 6  # Bound/limit for this check
+  minBodyOcclusionNeighbors: 2  # Bound/limit for this check
+  minBlockedPoints: 10  # Bound/limit for this check
+  placeGraceMs: 200  # Time window in milliseconds
+  walkThroughDistance: 0.75  # Check-specific tuning value
+
+# =============================================================================
+# COMBAT — Velocity / Click / Aim
+# =============================================================================
+
+# --- VelocityA: Anti-knockback vertical. ---
+VelocityA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  failVl: 1.0  # VL weight when this prediction check flags.
+  debug: false  # Verbose console logging for this check.
+  minExpectedV: 0.12  # Bound/limit for this check
+  minVerticalRatio: 0.22  # Bound/limit for this check
+  baseMinV: 0.04  # Check-specific tuning value
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- VelocityB: Anti-knockback horizontal. ---
+VelocityB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  failVl: 1.0  # VL weight when this prediction check flags.
+  debug: false  # Verbose console logging for this check.
+  minExpectedH: 0.12  # Bound/limit for this check
+  minHorizontalRatio: 0.38  # Bound/limit for this check
+  baseMinH: 0.04  # Check-specific tuning value
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- VelocityC: Impossible velocity envelope. ---
+VelocityC:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.2  # Violation level added on each flag (higher = faster punishment ladder).
+  failVl: 1.2  # VL weight when this prediction check flags.
+  debug: false  # Verbose console logging for this check.
+  reverseDotThreshold: -0.35  # Threshold — raise to reduce false positives
+  minReverseSpeed: 0.08  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- VelocityD: Reverse knockback. ---
+VelocityD:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  failVl: 0.6  # VL weight when this prediction check flags.
+  blatantVl: 1.5  # Check-specific tuning value
+  debug: false  # Verbose console logging for this check.
+  minImpossibleTicks: 2  # Bound/limit for this check
+  blatantOutsideBlocks: 0.35  # Check-specific tuning value
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  setbackEnabled: true  # Teleport player back on flag when true.
+
+# --- AutoClickA: Click consistency / CPS. ---
+AutoClickA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  combatSwingWindowMs: 180  # Time window in milliseconds
+  targetBlockDistance: 5  # Check-specific tuning value
+  minTrackedSwings: 8  # Bound/limit for this check
+  maxIntervalMs: 300  # Time window in milliseconds
+  minIntervals: 6  # Bound/limit for this check
+  outlierCpsDelta: 1.10  # Check-specific tuning value
+  windowSwings: 42  # Check-specific tuning value
+  minSamples: 24  # Minimum hits in window before evaluation.
+  minTrackedCps: 9.0  # Bound/limit for this check
+  maxTrackedCps: 17.5  # Bound/limit for this check
+  maxBandWidth: 1.15  # Bound/limit for this check
+  minTwoBucketRatio: 0.92  # Bound/limit for this check
+  maxStdMs: 4.4  # Time window in milliseconds
+  maxCv: 0.075  # Bound/limit for this check
+  maxOutlierRatio: 0.08  # Bound/limit for this check
+  maxAttackStdMs: 16.0  # Time window in milliseconds
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- AutoClickB: Click outlier ratio. ---
+AutoClickB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  windowSwings: 38  # Check-specific tuning value
+  minSamples: 22  # Minimum hits in window before evaluation.
+  minTrackedCps: 9.0  # Bound/limit for this check
+  maxTrackedCps: 16.0  # Bound/limit for this check
+  maxBandWidth: 1.0  # Bound/limit for this check
+  minTwoBucketRatio: 0.95  # Bound/limit for this check
+  maxStdMs: 5.0  # Time window in milliseconds
+  maxCv: 0.08  # Bound/limit for this check
+  maxOutlierRatio: 0.05  # Bound/limit for this check
+  maxAttackStdMs: 14.0  # Time window in milliseconds
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- AutoClickC: Attack interval variance. ---
+AutoClickC:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minTrackedSwings: 10  # Bound/limit for this check
+  minSliceSamples: 3  # Bound/limit for this check
+  windowSwings: 40  # Check-specific tuning value
+  minSamples: 24  # Minimum hits in window before evaluation.
+  minTrackedCps: 9.0  # Bound/limit for this check
+  maxTrackedCps: 16.0  # Bound/limit for this check
+  maxBandWidth: 1.25  # Bound/limit for this check
+  minTwoBucketRatio: 0.9  # Bound/limit for this check
+  maxWindowSpread: 0.55  # Bound/limit for this check
+  maxCv: 0.09  # Bound/limit for this check
+  sliceCount: 4  # Check-specific tuning value
+  maxAttackStdMs: 18.0  # Time window in milliseconds
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- CriticalsA: Forced crits without jump. ---
+CriticalsA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  maxGroundDy: 0.015  # Bound/limit for this check
+  maxGroundFallDistance: 0.06  # Bound/limit for this check
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- CriticalsB: Crit pattern statistics. ---
+CriticalsB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  minSamples: 4  # Minimum hits in window before evaluation.
+  patternWindow: 5  # Check-specific tuning value
+  microUpMin: 0.001  # Check-specific tuning value
+  microUpMax: 0.0625  # Check-specific tuning value
+  microDownMin: -0.0625  # Check-specific tuning value
+  microDownMax: -0.001  # Check-specific tuning value
+  legitJumpMin: 0.1  # Check-specific tuning value
+  legitAirFallDistance: 0.08  # Check-specific tuning value
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- CriticalsC: Crit packet timing. ---
+CriticalsC:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  windowMs: 45000  # Time window in milliseconds
+  minAttacks: 18  # Bound/limit for this check
+  minCrits: 10  # Bound/limit for this check
+  minCritFallDistance: 0.09  # Bound/limit for this check
+  maxCritRate: 0.82  # Bound/limit for this check
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- AimAssistA: Smooth aim / low jitter. ---
+AimAssistA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackWindowMs: 325  # Time window in milliseconds
+  maxRange: 3.2  # Bound/limit for this check
+  minYawDelta: 0.75  # Bound/limit for this check
+  maxYawDelta: 18.0  # Bound/limit for this check
+  maxCenterAngle: 8.5  # Bound/limit for this check
+  sampleWindow: 10  # Check-specific tuning value
+  minMeanYaw: 1.0  # Bound/limit for this check
+  maxStdYaw: 0.12  # Bound/limit for this check
+  stepQuantum: 0.01  # Check-specific tuning value
+  gcdQuantum: 0.005  # Check-specific tuning value
+  minDominantStepRatio: 0.72  # Bound/limit for this check
+  minGridScore: 0.86  # Bound/limit for this check
+  maxCenterMargin: 0.22  # Bound/limit for this check
+  maxClickStdMs: 8.5  # Time window in milliseconds
+  bufferToFlag: 7  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  lagCoverMinMeanYaw: 0.85  # Check-specific tuning value
+  lagCoverExtraStdYaw: 0.08  # Check-specific tuning value
+  lagCoverMinDominantStepRatio: 0.68  # Ratio or scale factor
+  lagCoverMinGridScore: 0.8  # Check-specific tuning value
+  lagCoverMaxCenterMargin: 0.3  # Check-specific tuning value
+  lagCoverMaxClickStdMs: 12.0  # Time window in milliseconds
+
+# --- AimAssistB: Aim acceleration patterns. ---
+AimAssistB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackWindowMs: 250  # Time window in milliseconds
+  maxRange: 3.15  # Bound/limit for this check
+  minRange: 2.0  # Bound/limit for this check
+  snapThreshold: 18.0  # Threshold — raise to reduce false positives
+  maxYawDelta: 90.0  # Bound/limit for this check
+  followSamples: 5  # Check-specific tuning value
+  maxFollowCenterAngle: 0.85  # Bound/limit for this check
+  maxFollowStd: 0.16  # Bound/limit for this check
+  maxFollowMargin: 0.12  # Bound/limit for this check
+  maxFollowError: 1.15  # Bound/limit for this check
+  minLookDot: 0.992  # Bound/limit for this check
+  bufferToFlag: 5  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- AimAssistC: Post-attack aim correction. ---
+AimAssistC:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackWindowMs: 325  # Time window in milliseconds
+  maxRange: 3.25  # Bound/limit for this check
+  minRange: 2.0  # Bound/limit for this check
+  minYawDelta: 0.7  # Bound/limit for this check
+  sampleWindow: 12  # Check-specific tuning value
+  maxMeanCenterAngle: 1.0  # Bound/limit for this check
+  maxCenterStd: 0.22  # Bound/limit for this check
+  maxSingleError: 1.45  # Bound/limit for this check
+  maxMeanAcceleration: 0.11  # Bound/limit for this check
+  maxAccelerationStd: 0.08  # Bound/limit for this check
+  overshootAngle: 1.4  # Check-specific tuning value
+  maxOvershootRatio: 0.08  # Bound/limit for this check
+  maxAttackStdMs: 18.0  # Time window in milliseconds
+  bufferToFlag: 6  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# =============================================================================
+# MOVEMENT — Engine prediction (primary)
+# =============================================================================
+
+# --- OffsetPrediction: Engine total movement offset (primary). ---
+OffsetPrediction:
+  enabled: true  # Master switch — false disables this check entirely.
+  failVl: 1.0  # VL weight when this prediction check flags.
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  soloBufferToFlag: 8  # Buffer needed when only one simulation source fired (raise for lenience).
+  minSourcesToFlag: 1  # Blatant vectors flag solo; non-blatant still uses corroboration in code
+  sourceMaxContribution: 4  # Max buffer one source can contribute per tick.
+  offsetThreshold: 0.08  # Threshold — raise to reduce false positives
+  moderateOffset: 0.08  # Packet cancel without full setback
+  setbackThreshold: 0.15  # Threshold — raise to reduce false positives
+  engineBlatantOffset: 0.15  # 1.8 PvP blatant threshold
+  advantageSetbackThreshold: 1.0
+  engineSlabOffsetGrace: 0.28  # Check-specific tuning value
+  engineSlabMaxHorizontal: 0.85  # Check-specific tuning value
+  engineSlabRiseMinDy: 0.015  # Check-specific tuning value
+  engineSlabRiseMaxDy: 0.62  # Check-specific tuning value
+  engineSlabFallMinDy: -0.65  # Check-specific tuning value
+  engineSlabFallMaxDy: 0.06  # Check-specific tuning value
+
+# --- FlyPrediction: Engine vertical fly simulation. ---
+FlyPrediction:
+  enabled: true  # Master switch — false disables this check entirely.
+  failVl: 1.15  # VL weight when this prediction check flags.
+  bufferToFlag: 5  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  soloBufferToFlag: 7  # Buffer needed when only one simulation source fired (raise for lenience).
+  minSourcesToFlag: 2  # Simulation sources required to punish (2 = needs corroboration).
+  sourceMaxContribution: 3  # Max buffer one source can contribute per tick.
+  setback-offset: 0.12  # Check-specific tuning value
+  jumpGraceMaxOffset: 0.30  # Check-specific tuning value
+  jumpGraceMinDy: -0.20  # Check-specific tuning value
+  stepGraceMaxOffset: 0.28  # Check-specific tuning value
+  dropGraceMaxOffset: 0.26  # Check-specific tuning value
+  damageCooldownMs: 500  # Time window in milliseconds
+  engineVerticalOffset: 0.10  # Check-specific tuning value
+  engineBlatantVerticalOffset: 0.32  # Check-specific tuning value
+  engineGraceMaxOffset: 0.20  # Check-specific tuning value
+  engineJumpGraceMinDy: -0.22  # Check-specific tuning value
+  engineJumpGraceMaxDy: 0.52  # Check-specific tuning value
+  engineJumpGraceMaxHorizontal: 0.95  # Check-specific tuning value
+  engineJumpGraceMaxOffset: 0.32  # Check-specific tuning value
+  engineStepMinDy: 0.12  # Check-specific tuning value
+  engineStepMaxDy: 0.62  # Check-specific tuning value
+  engineStepMaxHorizontal: 0.85  # Check-specific tuning value
+  engineStepGraceMaxOffset: 0.30  # Check-specific tuning value
+  engineSlabMinDy: 0.015  # Check-specific tuning value
+  engineSlabMaxDy: 0.40  # Check-specific tuning value
+  engineSlabMaxHorizontal: 0.85  # Check-specific tuning value
+  engineDropMinDy: -0.65  # Check-specific tuning value
+  engineDropMaxDy: 0.06  # Check-specific tuning value
+  engineDropMaxHorizontal: 0.85  # Check-specific tuning value
+  engineDropGraceMaxOffset: 0.28  # Check-specific tuning value
+
+# --- SpeedPrediction: Engine horizontal speed simulation. ---
+SpeedPrediction:
+  enabled: true  # Master switch — false disables this check entirely.
+  failVl: 1.0  # VL weight when this prediction check flags.
+  bufferToFlag: 5  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  soloBufferToFlag: 8  # Buffer needed when only one simulation source fired (raise for lenience).
+  minSourcesToFlag: 2  # Simulation sources required to punish (2 = needs corroboration).
+  sourceMaxContribution: 3  # Max buffer one source can contribute per tick.
+  setback-offset: 0.15  # Check-specific tuning value
+  jumpGraceMaxOffset: 1.10  # Check-specific tuning value
+  engineHorizontalOffset: 0.08  # Check-specific tuning value
+  engineBlatantHorizontalOffset: 0.55  # Check-specific tuning value
+  engineKnockbackHorizontalMaxOffset: 0.58  # Check-specific tuning value
+  engineIceMaxHorizontalOffset: 0.62  # Check-specific tuning value
+
+# --- GroundSpoofPrediction: Fake on-ground while airborne. ---
+GroundSpoofPrediction:
+  enabled: true  # Master switch — false disables this check entirely.
+  failVl: 1.2  # VL weight when this prediction check flags.
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  soloBufferToFlag: 2  # Buffer needed when only one simulation source fired (raise for lenience).
+  minSourcesToFlag: 1  # Simulation sources required to punish (2 = needs corroboration).
+  sourceMaxContribution: 2  # Max buffer one source can contribute per tick.
+  minDy: 0.05  # Bound/limit for this check
+  engineStepMinDy: 0.015  # Check-specific tuning value
+  engineStepMaxDy: 0.62  # Check-specific tuning value
+  engineStepMaxHorizontal: 0.85  # Check-specific tuning value
+  engineSlabFallMinDy: -0.65  # Check-specific tuning value
+  engineSlabFallMaxDy: 0.06  # Check-specific tuning value
+
+# --- StepPrediction: Engine step/slab vertical offset. ---
+StepPrediction:
+  enabled: true
+  failVl: 1.0
+  bufferToFlag: 4
+  soloBufferToFlag: 7
+  minSourcesToFlag: 2
+  sourceMaxContribution: 3
+  engineVerticalOffset: 0.12
+
+# --- JesusPrediction: Engine water/ladder horizontal offset. ---
+JesusPrediction:
+  enabled: true
+  failVl: 1.0
+  bufferToFlag: 5
+  soloBufferToFlag: 8
+  minSourcesToFlag: 2
+  sourceMaxContribution: 3
+  engineHorizontalOffset: 0.10
+
+# --- BlinkPrediction: Engine offset + timer gap/debt. ---
+BlinkPrediction:
+  enabled: true
+  failVl: 1.1
+  bufferToFlag: 4
+  soloBufferToFlag: 7
+  minSourcesToFlag: 2
+  sourceMaxContribution: 3
+  engineOffsetThreshold: 0.18
+  blatantGapMs: 120
+  blatantFlushMove: 2.0
+  blatantBurstPackets: 3
+  timerDebtMs: 140.0
+
+# --- PhasePrediction: Movement through walls (engine). ---
+PhasePrediction:
+  enabled: true  # Master switch — false disables this check entirely.
+  failVl: 1.35  # VL weight when this prediction check flags.
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  enginePhaseOffset: 0.10  # Check-specific tuning value
+
+# --- TimerPrediction: Packet timer / game speed. ---
+TimerPrediction:
+  enabled: true  # Master switch — false disables this check entirely.
+  failVl: 1.15  # VL weight when this prediction check flags.
+  blatantIntervalMs: 39  # Time window in milliseconds
+  gainDebtMs: 145.0  # Time window in milliseconds
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  setbackEnabled: true  # Teleport player back on flag when true.
+  setbackMinDebtMs: 165.0  # Time window in milliseconds
+  setbackMaxIntervalMs: 41  # Time window in milliseconds
+
+# =============================================================================
+# MOVEMENT — Legacy (shadowed when engine on)
+# =============================================================================
+
+# --- FlyA: Legacy hover fly (shadow when engine on). ---
+FlyA:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minAirTicks: 4  # Bound/limit for this check
+  hoverDy: 0.006  # Check-specific tuning value
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- FlyB: Anticheat detection check. ---
+FlyB:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minAirTicks: 6  # Bound/limit for this check
+  minFallDy: -0.038  # Bound/limit for this check
+  maxDy: 0.03  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- FlyC: Anticheat detection check. ---
+FlyC:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  simulationBufferGain: 2  # Check-specific tuning value
+  simulationFamilyMaxContribution: 4  # Check-specific tuning value
+  minAirTicks: 4  # Bound/limit for this check
+  minHorizontal: 0.09  # Bound/limit for this check
+  flatDy: 0.005  # Check-specific tuning value
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- FlyD: Anticheat detection check. ---
+FlyD:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  simulationBufferGain: 2  # Check-specific tuning value
+  simulationFamilyMaxContribution: 4  # Check-specific tuning value
+  launchMinVelocityY: 0.75  # Check-specific tuning value
+  launchExemptMs: 1600  # Time window in milliseconds
+  launchMaxExtraMs: 1200  # Time window in milliseconds
+  launchRecentVelocityWindowMs: 250  # Time window in milliseconds
+  safeFallDistance: 2.8  # Check-specific tuning value
+  minAirTicks: 4  # Bound/limit for this check
+  minSustainAirTicks: 5  # Bound/limit for this check
+  minRiseDy: 0.028  # Bound/limit for this check
+  sustainDy: 0.024  # Check-specific tuning value
+  minUpTicks: 3  # Bound/limit for this check
+  maxExtraRise: 0.028  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- FlyE: Anticheat detection check. ---
+FlyE:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  simulationBufferGain: 2  # Check-specific tuning value
+  simulationFamilyMaxContribution: 4  # Check-specific tuning value
+  minAirTicks: 4  # Bound/limit for this check
+  minSamples: 4  # Minimum hits in window before evaluation.
+  historySize: 10  # Check-specific tuning value
+  maxTrackedTicks: 1.35  # Bound/limit for this check
+  baseTolerance: 0.032  # Threshold — raise to reduce false positives
+  minComparisons: 4  # Bound/limit for this check
+  minViolationRatio: 0.48  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- SpeedA: Legacy horizontal speed cap. ---
+SpeedA:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.2  # Violation level added on each flag (higher = faster punishment ladder).
+  simulationBufferGain: 1  # Check-specific tuning value
+  velocityGraceMs: 500  # Time window in milliseconds
+  jumpGraceMaxDist: 1.10  # Check-specific tuning value
+  minOver: 0.10  # Bound/limit for this check
+  speedPotionExtraOver: 0.020  # Check-specific tuning value
+  groundBufferToFlag: 3  # Check-specific tuning value
+  airBufferToFlag: 3  # Check-specific tuning value
+
+# --- SpeedB: Anticheat detection check. ---
+SpeedB:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.2  # Violation level added on each flag (higher = faster punishment ladder).
+  velocityGraceMs: 425  # Time window in milliseconds
+  jumpGraceMaxDist: 0.78  # Check-specific tuning value
+  maxAirborneRunTicks: 8  # Bound/limit for this check
+  minLandingGraceTicks: 4  # Bound/limit for this check
+  maxLandingGraceTicks: 6  # Bound/limit for this check
+  hopMomentumBase: 0.11  # Check-specific tuning value
+  hopMomentumCap: 0.22  # Check-specific tuning value
+  hopMomentumPerAirTick: 0.025  # Check-specific tuning value
+  packetBonusCap: 0.08  # Check-specific tuning value
+  packetBonusPerTick: 0.035  # Check-specific tuning value
+  nearCapRatio: 1.055  # Ratio or scale factor
+  minOver: 0.04  # Bound/limit for this check
+  bufferToFlag: 6  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- SpeedC: Anticheat detection check. ---
+SpeedC:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.2  # Violation level added on each flag (higher = faster punishment ladder).
+  simulationBufferGain: 2  # Check-specific tuning value
+  simulationFamilyMaxContribution: 4  # Check-specific tuning value
+  velocityGraceMs: 550  # Time window in milliseconds
+  jumpGraceMaxDist: 0.76  # Check-specific tuning value
+  minOver: 0.045  # Bound/limit for this check
+  maxRiseDy: 0.42  # Bound/limit for this check
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- SpeedD: Anticheat detection check. ---
+SpeedD:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.2  # Violation level added on each flag (higher = faster punishment ladder).
+  simulationBufferGain: 2  # Check-specific tuning value
+  simulationFamilyMaxContribution: 4  # Check-specific tuning value
+  velocityGraceMs: 500  # Time window in milliseconds
+  jumpGraceMaxDist: 0.80  # Check-specific tuning value
+  groundSpikeOver: 0.28  # Check-specific tuning value
+  airSpikeOver: 0.2  # Check-specific tuning value
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- PhaseA: Anticheat detection check. ---
+PhaseA:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minSolidOverlaps: 3  # Bound/limit for this check
+  maxEmbeddedHorizontal: 0.45  # Bound/limit for this check
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- PhaseB: Anticheat detection check. ---
+PhaseB:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  simulationBufferGain: 2  # Check-specific tuning value
+  simulationFamilyMaxContribution: 4  # Check-specific tuning value
+  minHorizontal: 0.24  # Bound/limit for this check
+  maxDistance: 4.5  # Max reach (blocks) — farther hits ignored by this check.
+  minPathSolids: 2  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- GroundSpoofA: Anticheat detection check. ---
+GroundSpoofA:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- GroundSpoofB: Anticheat detection check. ---
+GroundSpoofB:
+  enabled: true  # Master switch — false disables this check entirely.
+  shadow: true  # Tuning mode — true logs detections without VL, setbacks, or bans.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  simulationBufferGain: 2  # Check-specific tuning value
+  simulationFamilyMaxContribution: 4  # Check-specific tuning value
+  minSpoofDy: -0.08  # Bound/limit for this check
+  airTicksToFlag: 3  # Check-specific tuning value
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# =============================================================================
+# MOVEMENT — Step / NoFall / Jesus / Blink
+# =============================================================================
+
+# --- StepA: Anticheat detection check. ---
+StepA:
+  enabled: true
+  shadow: true
+  maxStep: 0.8  # Bound/limit for this check
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+
+# --- StepB: Anticheat detection check. ---
+StepB:
+  enabled: true
+  shadow: true
+  maxStep: 1.0  # Bound/limit for this check
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+
+# --- StepC: Anticheat detection check. ---
+StepC:
+  enabled: true
+  shadow: true
+  maxStep: 1.2  # Bound/limit for this check
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minStepDy: 0.38  # Bound/limit for this check
+  maxTrackedStepDy: 1.5  # Bound/limit for this check
+  rapidStepIntervalMs: 260  # Time window in milliseconds
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- NoFallA: Anticheat detection check. ---
+NoFallA:
+  enabled: true
+  shadow: true
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minFallDistance: 2.9  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  damageWaitMs: 140  # Time window in milliseconds
+  damageWindowMs: 1000  # Time window in milliseconds
+  eventWindowMs: 850  # Time window in milliseconds
+  combatGraceMs: 700  # Time window in milliseconds
+  minFallDamage: 0.5  # Bound/limit for this check
+
+# --- NoFallB: Anticheat detection check. ---
+NoFallB:
+  enabled: true
+  shadow: true
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minSpoofDy: -0.085  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- NoFallC: Anticheat detection check. ---
+NoFallC:
+  enabled: true
+  shadow: true
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minTrackedFall: 3.2  # Bound/limit for this check
+  minReportedFall: 1.1  # Bound/limit for this check
+  minResetFall: 2.7  # Bound/limit for this check
+  midAirMinReported: 0.65  # Check-specific tuning value
+  hardResetReported: 0.45  # Check-specific tuning value
+  resetCountToFlag: 2  # Check-specific tuning value
+  eventWindowMs: 850  # Time window in milliseconds
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- JesusA: Anticheat detection check. ---
+JesusA:
+  enabled: true
+  shadow: true
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- JesusB: Anticheat detection check. ---
+JesusB:
+  enabled: true
+  shadow: true
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  maxWaterSpeed: 0.18  # Bound/limit for this check
+  maxSurfaceSpeed: 0.145  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- BlinkA: Packet choke / position desync. ---
+BlinkA:
+  enabled: true
+  shadow: true
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minGapMs: 420  # Time window in milliseconds
+  gapExcessMs: 60  # Time window in milliseconds
+  burstThresholdMs: 30  # Time window in milliseconds
+  minReplaySamples: 2  # Bound/limit for this check
+  minSampleDisplacement: 0.15  # Bound/limit for this check
+  lowDisplacementGraceMs: 250  # Time window in milliseconds
+  burstTrackingWindowMs: 1200  # Time window in milliseconds
+  freezeCleanupMs: 1500  # Time window in milliseconds
+  burstSettleMs: 1000  # Time window in milliseconds
+  minDist: 1.5  # Bound/limit for this check
+  hardDist: 4.0  # Check-specific tuning value
+  extraDistanceBuffer: 0.35  # Check-specific tuning value
+  hardExtraDistance: 0.90  # Check-specific tuning value
+  hardGapExcessMs: 120  # Time window in milliseconds
+  minBurstPackets: 2  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  setbackCooldownMs: 0  # Deprecated — setbacks fire every invalid packet (no cooldown).
+
+# --- BlinkB: Anticheat detection check. ---
+BlinkB:
+  enabled: true
+  shadow: true
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  deadZoneMs: 350  # Time window in milliseconds
+  gapExcessMs: 55  # Time window in milliseconds
+  burstMinPackets: 4  # Check-specific tuning value
+  burstWindowMs: 180  # Time window in milliseconds
+  deadBurstMaxGapMs: 1500  # Time window in milliseconds
+  idleGraceMs: 250  # Time window in milliseconds
+  minSampleDisplacement: 0.15  # Bound/limit for this check
+  minDisplacement: 1.2  # Bound/limit for this check
+  extraDistanceBuffer: 0.20  # Check-specific tuning value
+  blatantExtraDistance: 0.85  # Check-specific tuning value
+  blatantDeadDurationMs: 750  # Time window in milliseconds
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# =============================================================================
+# PLAYER — Scaffold / Inventory / Timer / Misc
+# =============================================================================
+
+# --- ScaffoldA: Scaffold placement speed/angle. ---
+ScaffoldA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  debug: false  # Verbose console logging for this check.
+  sampleSize: 6  # Check-specific tuning value
+  minStreak: 4  # Bound/limit for this check
+  maxAverageMs: 200.0  # Time window in milliseconds
+  maxCv: 0.15  # Bound/limit for this check
+  maxSpreadMs: 90.0  # Time window in milliseconds
+  pitchSampleSize: 6  # Check-specific tuning value
+  maxPitchCv: 6.0  # Bound/limit for this check
+  minBridgeMoveH: 0.1  # Bound/limit for this check
+  maxBehindDot: -0.56  # Bound/limit for this check
+  minBehindHorizontalDistance: 0.32  # Bound/limit for this check
+  minAimDot: 0.28  # Bound/limit for this check
+  minHorizontalSupport: 0.85  # Bound/limit for this check
+  minShallowPitch: 12.0  # Bound/limit for this check
+  legitAimDot: 0.72  # Check-specific tuning value
+  legitSupportDistance: 1.05  # Check-specific tuning value
+  legitBridgePitch: 18.0  # Check-specific tuning value
+  maxEyeDistance: 4.05  # Bound/limit for this check
+  minFarHorizontalDistance: 1.35  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- ScaffoldB: Anticheat detection check. ---
+ScaffoldB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minStreak: 3  # Bound/limit for this check
+  minAimDot: 0.38  # Bound/limit for this check
+  minHorizontalSupport: 0.72  # Bound/limit for this check
+  minBridgePitch: 12.0  # Bound/limit for this check
+  maxBehindDot: -0.5  # Bound/limit for this check
+  minHorizontalDistance: 0.3  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- ScaffoldC: Anticheat detection check. ---
+ScaffoldC:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  maxEyeDistance: 4.0  # Bound/limit for this check
+  minHorizontalDistance: 1.35  # Bound/limit for this check
+  maxSupportDistance: 1.25  # Bound/limit for this check
+  minAimDot: 0.45  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- ScaffoldD: Anticheat detection check. ---
+ScaffoldD:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  debug: false  # Verbose console logging for this check.
+  minMoveH: 0.08  # Bound/limit for this check
+  maxBehindDot: -0.55  # Bound/limit for this check
+  minHorizontalDistance: 0.25  # Bound/limit for this check
+  towerMinAimDot: 0.4  # Check-specific tuning value
+  towerMinSupportDistance: 0.7  # Check-specific tuning value
+  minStreak: 3  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- ScaffoldE: Anticheat detection check. ---
+ScaffoldE:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  supportHistoryMs: 175  # Time window in milliseconds
+  minSupportDistance: 0.8  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- ScaffoldF: Anticheat detection check. ---
+ScaffoldF:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  packetWindowMs: 250  # Time window in milliseconds
+  cursorAllowed: 1.0  # Check-specific tuning value
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- ScaffoldG: Anticheat detection check. ---
+ScaffoldG:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  sampleWindowMs: 200  # Time window in milliseconds
+  reach: 4.25  # Check-specific tuning value
+  rayStep: 0.08  # Check-specific tuning value
+  maxPostYawDelta: 1.0  # Bound/limit for this check
+  maxPostPitchDelta: 1.2  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- InventoryA: Anticheat detection check. ---
+InventoryA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  bufferToFlag: 4  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  momentumExemptMs: 200  # Momentum exemption window after inventory opens (ms) - allows 1-3 ticks of legitimate momentum  # Time window in milliseconds
+
+# --- InventoryB: Anticheat detection check. ---
+InventoryB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  historySize: 12  # Check-specific tuning value
+  minSamples: 5  # Minimum hits in window before evaluation.
+  maxClicksPerSec: 16.0  # Bound/limit for this check
+  maxIntervalStd: 22.0  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- InventoryC: Anticheat detection check. ---
+InventoryC:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  openAttackWindowMs: 500  # Time window in milliseconds
+  attackFreshnessMs: 150  # Max ms since attack packet — ignore stale attacks.
+  minSprintMove: 0.15  # Bound/limit for this check
+
+# --- FastBowA: Anticheat detection check. ---
+FastBowA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  blatantPullMs: 100  # Time window in milliseconds
+  suspiciousPullMs: 165  # Time window in milliseconds
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- FastBowB: Anticheat detection check. ---
+FastBowB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minShotIntervalMs: 260  # Time window in milliseconds
+  maxShortPullMs: 185  # Time window in milliseconds
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- NukerA: Mass block break. ---
+NukerA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.4  # Violation level added on each flag (higher = faster punishment ladder).
+  windowMs: 1500  # Time window in milliseconds
+  maxBreaksPerSecond: 1.2  # Bound/limit for this check
+  minBreaks: 2  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- NukerB: Anticheat detection check. ---
+NukerB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.5  # Violation level added on each flag (higher = faster punishment ladder).
+  maxAngle: 60.0  # Bound/limit for this check
+  blatantAngle: 92.0  # Check-specific tuning value
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- NukerC: Anticheat detection check. ---
+NukerC:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.5  # Violation level added on each flag (higher = faster punishment ladder).
+  maxReach: 4.8  # Bound/limit for this check
+  blatantReach: 5.15  # Check-specific tuning value
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- NukerD: Anticheat detection check. ---
+NukerD:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.4  # Violation level added on each flag (higher = faster punishment ladder).
+  minDigStartIntervalMs: 65  # Time window in milliseconds
+  blatantDigStartIntervalMs: 25  # Time window in milliseconds
+  maxStartsBeforeBreak: 2  # Bound/limit for this check
+  blatantStartsBeforeBreak: 5  # Check-specific tuning value
+  ratioCheckInterval: 2  # Check-specific tuning value
+  maxStartBreakRatio: 1.75  # Bound/limit for this check
+  minStartsForRatioCheck: 4  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- TimerA: Legacy packet timer. ---
+TimerA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  failVl: 1.0  # VL weight when this prediction check flags.
+  baseThreshold: 250  # Threshold — raise to reduce false positives
+  thresholdIncrement: 50  # Check-specific tuning value
+  bufferToFlag: 5  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  setbackEnabled: true  # Teleport player back on flag when true.
+
+# --- TimerB: Anticheat detection check. ---
+TimerB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  failVl: 1.2  # VL weight when this prediction check flags.
+  windowMs: 2500  # Time window in milliseconds
+  minRatio: 1.01  # Bound/limit for this check
+  resetAfterMs: 3500  # Time window in milliseconds
+  resetGapMs: 160  # Time window in milliseconds
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+  setbackEnabled: true  # Teleport player back on flag when true.
+  setbackMinRatio: 1.09  # Ratio or scale factor
+
+# --- TimerC: Anticheat detection check. ---
+TimerC:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  failVl: 1.0  # VL weight when this prediction check flags.
+  baseThreshold: 200  # Threshold — raise to reduce false positives
+  maxNegativeBalance: 800  # Bound/limit for this check
+  resetGapMs: 250  # Time window in milliseconds
+  jitterToleranceMs: 80  # Time window in milliseconds
+  bufferToFlag: 5  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- BadPackets A–Z: packet structure, order, and state validation ---
+BadPacketsA:
+  enabled: true
+  vl: 1.4
+  maxAbsPitch: 90.1
+  bufferToFlag: 2
+
+BadPacketsB:
+  enabled: true
+  vl: 1.0
+  maxDuplicateIntervalMs: 8
+  maxTinyIntervalMs: 16
+  minNoRotationMs: 80
+  resetGapMs: 110
+  lagCoverScore: 1.15
+  bufferToFlag: 4
+
+BadPacketsC:
+  enabled: true
+  vl: 1.2
+  bufferToFlag: 4
+  attackFreshnessMs: 150
+  hardSwingDeltaMs: 120
+
+BadPacketsD:
+  enabled: true
+  vl: 2.0
+  bufferToFlag: 1
+
+BadPacketsE:
+  enabled: true
+  vl: 1.2
+  bufferToFlag: 3
+  minY: -64
+  maxY: 320
+  maxHorizontal: 32
+  blatantOverY: 8
+
+BadPacketsF:
+  enabled: true
+  vl: 1.0
+  bufferToFlag: 4
+  maxStreak: 8
+  lagCoverScore: 1.15
+
+BadPacketsG:
+  enabled: true
+  vl: 2.0
+  bufferToFlag: 1
+
+BadPacketsH:
+  enabled: true
+  vl: 1.0
+  bufferToFlag: 5
+  maxSlotChangesPerWindow: 4
+
+BadPacketsI:
+  enabled: true
+  vl: 1.5
+  bufferToFlag: 2
+
+BadPacketsJ:
+  enabled: true
+  vl: 1.0
+  bufferToFlag: 5
+  maxActionsPerWindow: 6
+
+BadPacketsK:
+  enabled: true
+  vl: 2.0
+  bufferToFlag: 1
+
+BadPacketsL:
+  enabled: true
+  vl: 1.3
+  bufferToFlag: 3
+  blatantBuffer: 2
+
+BadPacketsM:
+  enabled: true
+  vl: 1.1
+  bufferToFlag: 4
+  minDistinctEntities: 2
+
+BadPacketsN:
+  enabled: true
+  vl: 1.2
+  bufferToFlag: 3
+
+BadPacketsO:
+  enabled: true
+  vl: 1.2
+  bufferToFlag: 3
+
+BadPacketsP:
+  enabled: true
+  vl: 1.2
+  bufferToFlag: 3
+
+BadPacketsQ:
+  enabled: true
+  vl: 1.3
+  bufferToFlag: 3
+  maxReach: 6.0
+  pingFactor: 0.002
+  maxPingAllowance: 0.35
+
+BadPacketsR:
+  enabled: true
+  vl: 1.2
+  bufferToFlag: 3
+
+BadPacketsS:
+  enabled: true
+  vl: 1.0
+  bufferToFlag: 5
+  maxSwingsPerWindow: 8
+
+BadPacketsT:
+  enabled: true
+  vl: 1.5
+  bufferToFlag: 2
+  structuralMax: 6.5
+
+BadPacketsU:
+  enabled: true
+  vl: 1.1
+  bufferToFlag: 4
+
+BadPacketsV:
+  enabled: true
+  vl: 1.2
+  bufferToFlag: 3
+
+BadPacketsW:
+  enabled: true
+  vl: 1.3
+  bufferToFlag: 3
+  maxReach: 5.2
+  pingFactor: 0.002
+  maxPingAllowance: 0.35
+
+BadPacketsX:
+  enabled: true
+  vl: 1.0
+  bufferToFlag: 4
+  minUpwardDy: 0.12
+
+BadPacketsY:
+  enabled: true
+  vl: 1.1
+  bufferToFlag: 3
+  minMoveDist: 0.35
+
+BadPacketsZ:
+  enabled: true
+  vl: 1.5
+  bufferToFlag: 1
+  blatantScoreToFlag: 6
+  blatantWindowMs: 1200
+
+# --- KeepSprintA: Sprint abuse after attacks. ---
+KeepSprintA:
+  enabled: true
+  vl: 1.0
+  bufferToFlag: 6
+  attackFreshnessMs: 200
+  minSuspiciousSpeed: 0.22
+
+# --- BedBreakReachA: Bed dig reach. ---
+BedBreakReachA:
+  enabled: true
+  vl: 1.5
+  bufferToFlag: 3
+  maxReach: 4.6
+  maxPingAllowance: 0.35
+  pingFactor: 0.002
+
+# --- BedAuraA: Bed-adjacent combat without LOS. ---
+BedAuraA:
+  enabled: true
+  vl: 1.4
+  bufferToFlag: 4
+  attackFreshnessMs: 200
+  bedSearchRadius: 5
+
+# --- NoRotationA: Anticheat detection check. ---
+NoRotationA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackWindowMs: 260  # Time window in milliseconds
+  dedupeMs: 18  # Time window in milliseconds
+  minRange: 1.25  # Bound/limit for this check
+  maxRange: 4.2  # Bound/limit for this check
+  maxRotationAgeMs: 90  # Time window in milliseconds
+  maxAttackAngle: 21.0  # Bound/limit for this check
+  maxLookDot: 0.93  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- NoRotationB: Anticheat detection check. ---
+NoRotationB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  attackWindowMs: 260  # Time window in milliseconds
+  dedupeMs: 18  # Time window in milliseconds
+  minRange: 1.0  # Bound/limit for this check
+  maxRange: 4.3  # Bound/limit for this check
+  staleRotationMs: 55  # Time window in milliseconds
+  impossibleAngle: 40.0  # Check-specific tuning value
+  impossibleLookDot: 0.76  # Check-specific tuning value
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- FastEatA: Anticheat detection check. ---
+FastEatA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  blatantUseMs: 950  # Time window in milliseconds
+  suspiciousUseMs: 1400  # Time window in milliseconds
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- NoSlowA: Anticheat detection check. ---
+NoSlowA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minTrackedSpeed: 0.09  # Bound/limit for this check
+  maxGroundSpeedWhileUsing: 0.19  # Bound/limit for this check
+  bufferToFlag: 3  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- NoSlowB: Anticheat detection check. ---
+NoSlowB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  minTrackedSpeed: 0.10  # Bound/limit for this check
+  maxNearSprintWhileUsing: 0.225  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- FastBreakA: Anticheat detection check. ---
+FastBreakA:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  toleranceRatio: 0.92  # Ratio or scale factor
+  minExpectedMs: 100  # Time window in milliseconds
+  absoluteAllowanceMs: 55  # Time window in milliseconds
+  softBlockExtraAllowanceMs: 90  # Time window in milliseconds
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# --- FastBreakB: Anticheat detection check. ---
+FastBreakB:
+  enabled: true  # Master switch — false disables this check entirely.
+  vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
+  sampleSize: 10  # Check-specific tuning value
+  minSamples: 5  # Minimum hits in window before evaluation.
+  instantBlockMinAvgMs: 80.0  # Time window in milliseconds
+  minAvgRatio: 0.84  # Bound/limit for this check
+  bufferToFlag: 2  # Buffer/evidence needed before flagging (raise to reduce false positives).
+
+# =============================================================================
+# ANTI-BYPASS HARDENING (v4)
+# =============================================================================
+
+BadPacketsTransactionA:
+  enabled: true
+  failVl: 1.0
+  sentWithoutAckThreshold: 40
+  graceMs: 2000
+  bufferToFlag: 3
+
+BadPacketsTransactionB:
+  enabled: true
+  failVl: 1.0
+  burstThreshold: 4
+  bufferToFlag: 2
+
+SetbackAcceptA:
+  enabled: true
+  failVl: 1.0
+  rejectDistance: 0.5
+  bufferToFlag: 2
+
+MultiActionsA:
+  enabled: true
+  failVl: 1.0
+
+MultiActionsB:
+  enabled: true
+  failVl: 1.0
+
+MultiActionsC:
+  enabled: true
+  failVl: 1.0
+  moveOffsetThreshold: 0.03
+  bufferToFlag: 3
+
+MultiActionsD:
+  enabled: true
+  failVl: 0.8
+  moveOffsetThreshold: 0.03
+
+MultiActionsE:
+  enabled: true
+  failVl: 0.9
+  bufferToFlag: 2
+
+MultiActionsF:
+  enabled: true
+  failVl: 1.0
+
+MultiActionsG:
+  enabled: true
+  failVl: 1.0
+
+AutoBlockC:
+  enabled: true
+  failVl: 1.0
+  bufferToFlag: 3
+
+FlyF:
+  enabled: true
+  shadow: true
+  vl: 1.0
+
+NoSlowPrediction:
+  enabled: true
+  engineHorizontalOffset: 0.06
+  bufferToFlag: 3
+  failVl: 1.0
+
+NoRotationA:
+  maxRotationAgeMs: 120
