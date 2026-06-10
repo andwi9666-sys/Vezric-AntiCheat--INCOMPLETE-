@@ -203,6 +203,9 @@ public class PacketListener extends PacketListenerAbstract {
             }
             LagProfileUtil.handleFlyingInterval(plugin, p, d, now, d.getLastFlyingIntervalMs());
             com.colin.vezanticheat.utils.NoFallTracker.noteBlinkGap(plugin, p, d, now);
+            // Persistent drift ledger: a movement gap debits a bounded amount but NEVER resets the
+            // ledger, so a timer cheat cannot farm advantage then stall to wipe it.
+            com.colin.vezanticheat.engine.PlayerClock.onMovementGap(plugin, d, d.getLastFlyingIntervalMs());
             com.colin.vezanticheat.engine.PlayerClock.onFlyingPacket(plugin, p, d, positionIncluded);
             com.colin.vezanticheat.utils.UseItemTracker.decayReleaseStreak(d, now);
 

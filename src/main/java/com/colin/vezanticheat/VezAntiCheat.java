@@ -34,21 +34,30 @@ import org.bukkit.plugin.java.JavaPlugin;
  *
  * Architecture Overview:
  * =====================
- * This anticheat uses a 3rd-generation prediction-based approach:
+ * This anticheat uses a Grim-style prediction-engine approach. As of Phase 2A the engine is THE
+ * movement speed authority:
  * 1. PacketEvents intercepts raw client packets (position, rotation, interaction)
- * 2. Per-player state is tracked in PlayerData (velocity, position history, potion effects)
- * 3. A physics simulation engine predicts all legal next positions
- * 4. Actual player position is compared against the prediction envelope
+ * 2. Per-player state is tracked in PlayerData (velocity, position history, potion effects,
+ *    serverGround truth, offset-advantage accumulator, persistent clock-drift ledger)
+ * 3. MovementCheckRunner (engine) simulates the legal next velocity and computes a reduced offset
+ * 4. Actual movement is compared against the prediction; sub-threshold offset accrues into a
+ *    slow-decaying long-window advantage so sustained tiny speed cannot hide
  * 5. Deviations accumulate through a 3-layer detection system (prefilter → buffer → mitigation)
+ *    and enforce via utils/MovementEnforcement (engine-aware setback + circuit breaker)
+ *
+ * The legacy heuristic PredictionProcessor.handleMovement is DEMOTED to a dead-by-default
+ * emergency kill-switch (engine.skip-legacy-movement-prediction=false re-enables it). When the
+ * engine is authoritative, PredictionProcessor only bridges the velocity (knockback) session.
  *
  * Component Hierarchy:
  * ====================
  * VezAntiCheat (this class) — initializes and wires all components
- *  ├── PacketListener — intercepts packets via PacketEvents API, dispatches to checks
+ *  ├── PacketListener — intercepts packets via PacketEvents API, dispatches to checks + engine
  *  ├── PlayerListener — handles Bukkit events (join, quit, teleport, damage, inventory)
  *  ├── PlayerDataManager — creates/destroys per-player state containers
  *  ├── TierCheckManager — Polar four-tier check registration and dispatch
- *  ├── PredictionProcessor — heuristic + simulation movement validation
+ *  ├── MovementCheckRunner (engine) — Grim-style offset prediction; SOLE speed authority
+ *  ├── PredictionProcessor — velocity-session bridge + dead-by-default kill-switch fallback
  *  ├── SimulationCheck — 3rd-gen envelope-based movement prediction
  *  ├── ConfigManager — typed access to config.yml values
  *  ├── TpsMonitor — tracks server TPS for lag compensation
@@ -59,11 +68,11 @@ import org.bukkit.plugin.java.JavaPlugin;
  * Packet Flow:
  * ============
  * Client sends packet → PacketEvents intercepts → PacketListener.onPacketReceive()
- *   → Updates PlayerData (position, rotation, timing)
+ *   → Updates PlayerData (position, rotation, timing, serverGround, clock ledger)
+ *   → Runs MovementCheckRunner.onMovement (engine — authoritative speed validation)
  *   → Calls TierCheckManager dispatch (Characteristics → Prism → Simulation → Prediction)
- *   → Individual checks read PlayerData and flag violations
- *   → PredictionProcessor runs simulation for movement validation
- *   → Violations accumulate VL → PunishmentManager executes actions
+ *   → Individual checks read PlayerData + EngineResult and flag violations
+ *   → Violations enforce via utils/MovementEnforcement and accumulate VL → PunishmentManager
  *
  * Why PacketEvents (not ProtocolLib):
  * ===================================

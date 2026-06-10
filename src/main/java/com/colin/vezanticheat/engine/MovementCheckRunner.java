@@ -52,7 +52,10 @@ public final class MovementCheckRunner {
         mp.ticksSinceTeleport = 0;
         mp.uncertaintyHandler.lastTeleportTicks = 0;
         data.setEngineInitialized(true);
+        data.resetEngineUnverifiedTicks();
         data.getCompensatedWorld().setWorld(to.getWorld());
+        // Pause the persistent clock-drift ledger across this teleport (corrections must not accrue).
+        PlayerClock.onTeleport(plugin, data);
         SetbackUtil.seedValidGroundAnchor(data, to, System.currentTimeMillis());
     }
 
@@ -84,6 +87,16 @@ public final class MovementCheckRunner {
             }
             return publishExempt(data, nowMs, "init");
         }
+
+        // CHUNK-UNLOAD HANDLING: rather than skipping validation outright when surrounding chunks are
+        // unloaded (a known phase/speed exploit vector), enter an "unverified" mode. We still accrue
+        // the player's horizontal motion into the offset-advantage accumulator and force a resync
+        // setback if the unverified streak persists beyond a configurable tick budget.
+        if (chunkUnloaded(from, to)) {
+            handleUnverifiedTick(player, data, mp, from, to, clientGround, nowMs);
+            return publishExempt(data, nowMs, "chunk-unverified");
+        }
+        data.resetEngineUnverifiedTicks();
 
         // Exemptions: skip prediction but keep state synced to the live position.
         String exempt = exemptReason(player, data, from, to);
@@ -124,19 +137,32 @@ public final class MovementCheckRunner {
         mp.uncertaintyHandler.lastVerticalOffset = Math.min(1.0D, verticalOffset) * 0.6D;
         mp.uncertaintyHandler.collidedHorizontally = mp.collisionX || mp.collisionZ;
 
-        // Grim-style advantage accumulator for burst cheat detection across ticks.
-        double advantageDecay = plugin.getConfig().getDouble("engine.advantage-decay", 0.999D);
-        double advantageGain = Math.max(0.0D, reduced - plugin.getConfig().getDouble("engine.advantage-threshold", 0.001D));
-        if (FallArcTracker.isInFallArcWindow(plugin, data, nowMs)) {
-            advantageGain = 0.0D;
-        }
+        // LONG-WINDOW OFFSET ADVANTAGE — accumulate each tick's reduced offset above a small floor.
+        // Unlike a hard rolling window this uses a SLOW per-clean-second decay so sustained
+        // sub-threshold speed (ratio ~1.003-1.006) cannot hide below an instantaneous threshold.
+        // It survives teleports (no reset here); only MovementEnforcement.executeSetback zeroes it.
+        double advantageThreshold = plugin.getConfig().getDouble("engine.advantage-threshold", 0.001D);
+        // During a legit fall-arc window the reduced offset must not accrue (treated as a clean tick
+        // for accumulation purposes); the per-clean-second decay still applies.
+        double accrualOffset = FallArcTracker.isInFallArcWindow(plugin, data, nowMs) ? 0.0D : reduced;
         if (ItemUseMovementUtil.suppressesMovementFlags(data, nowMs)) {
             data.setEngineOffsetAdvantage(data.getEngineOffsetAdvantage() * 0.75D);
         } else if (EngineMovementGrace.isKnockbackOrCombatGrace(plugin, data, nowMs)) {
             data.setEngineOffsetAdvantage(data.getEngineOffsetAdvantage() * 0.5D);
         } else {
-            double advantage = data.getEngineOffsetAdvantage() * advantageDecay + advantageGain;
-            data.setEngineOffsetAdvantage(advantage);
+            // Clean ticks bleed off via a slow per-clean-second decay (default -25%/clean second),
+            // NOT a hard window reset; the accumulator survives teleports and is zeroed only by a
+            // setback (MovementEnforcement.executeSetback). See OffsetAdvantageAccumulator.
+            double cleanDecayPerSec = plugin.getConfig().getDouble("engine.advantage-clean-decay-per-second", 0.25D);
+            double advantageCap = plugin.getConfig().getDouble("engine.advantage-cap", 2.0D);
+            double next = OffsetAdvantageAccumulator.advance(
+                    data.getEngineOffsetAdvantage(),
+                    accrualOffset,
+                    advantageThreshold,
+                    cleanDecayPerSec,
+                    Math.max(0L, data.getLastFlyingIntervalMs()),
+                    advantageCap);
+            data.setEngineOffsetAdvantage(next);
         }
 
         double advantage = data.getEngineOffsetAdvantage();
@@ -329,7 +355,15 @@ public final class MovementCheckRunner {
 
         // Server-truth ground at the start-of-tick position drives friction and jumps.
         boolean serverGround = Collisions.isOnGround(world, from.getX(), from.getY(), from.getZ());
+        // SERVER-SIDE GROUND TRUTH: publish the raw collision verdict alongside the client claim so
+        // ground-spoof checks can compare. PointThree leniency still feeds prediction INPUT below.
+        data.setServerGround(serverGround);
         mp.onGround = serverGround || (clientGround && Math.abs(mp.actualMovement.getY()) < 1.0E-4D);
+
+        // COMPENSATION BUDGET CAP: clamp total stacked lenience so multiple compensation triggers
+        // cannot be farmed together to hide a real offset (default 0.12; aggressive 0.08).
+        mp.uncertaintyHandler.leniencyBudgetCap =
+                plugin.getConfig().getDouble("engine.compensation.leniency-budget-cap", 0.12D);
 
         mp.friction = (float) (groundSlip(below) * 0.91D);
 
@@ -364,9 +398,48 @@ public final class MovementCheckRunner {
         if (data.isTeleportExempt()) return "teleport";
         if (PlayerData.bypass(player)) return "bypass";
         if (to.getWorld() == null) return "world";
-        if (!to.getWorld().isChunkLoaded(to.getBlockX() >> 4, to.getBlockZ() >> 4)) return "chunk";
-        if (!from.getWorld().isChunkLoaded(from.getBlockX() >> 4, from.getBlockZ() >> 4)) return "chunk";
+        // Chunk-unload is handled by the unverified-mode path in onMovement, not here.
         return null;
+    }
+
+    private boolean chunkUnloaded(Location from, Location to) {
+        if (from == null || to == null || from.getWorld() == null || to.getWorld() == null) return false;
+        if (!to.getWorld().isChunkLoaded(to.getBlockX() >> 4, to.getBlockZ() >> 4)) return true;
+        return !from.getWorld().isChunkLoaded(from.getBlockX() >> 4, from.getBlockZ() >> 4);
+    }
+
+    /**
+     * Unverified-mode tick: collision data is unavailable, so we cannot run the full prediction.
+     * We keep MovementPlayer state synced, accrue horizontal motion into the offset-advantage
+     * accumulator (so a player cannot freely cheat in unloaded chunks), and force a resync setback
+     * once the unverified streak exceeds the configured budget.
+     */
+    private void handleUnverifiedTick(Player player, PlayerData data, MovementPlayer mp,
+                                      Location from, Location to, boolean clientGround, long nowMs) {
+        syncToPosition(mp, to, clientGround);
+        if (PlayerData.bypass(player) || data.isTeleportExempt()) {
+            data.resetEngineUnverifiedTicks();
+            return;
+        }
+
+        double dx = to.getX() - from.getX();
+        double dz = to.getZ() - from.getZ();
+        double horizontal = Math.hypot(dx, dz);
+        double accrual = plugin.getConfig().getDouble("engine.unverified.horizontal-accrual-floor", 0.30D);
+        if (horizontal > accrual) {
+            double advantageCap = plugin.getConfig().getDouble("engine.advantage-cap", 2.0D);
+            double gain = (horizontal - accrual)
+                    * plugin.getConfig().getDouble("engine.unverified.accrual-factor", 0.5D);
+            data.setEngineOffsetAdvantage(Math.min(advantageCap, data.getEngineOffsetAdvantage() + gain));
+        }
+
+        int streak = data.incrementEngineUnverifiedTicks();
+        int maxTicks = plugin.getConfig().getInt("engine.unverified.max-ticks", 20);
+        if (streak >= maxTicks) {
+            com.colin.vezanticheat.utils.MovementEnforcement.executeSetback(
+                    plugin, player, data, "engine unverified-chunk resync ticks=" + streak);
+            data.resetEngineUnverifiedTicks();
+        }
     }
 
     private void syncToPosition(MovementPlayer mp, Location to, boolean clientGround) {

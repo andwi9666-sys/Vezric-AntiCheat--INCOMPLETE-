@@ -761,7 +761,7 @@ OffsetPrediction:
   setbackThreshold: 0.15  # Threshold — raise to reduce false positives
   engineBlatantOffset: 0.15  # 1.8 PvP blatant threshold
   advantageSetbackThreshold: 1.0
-  engineSlabOffsetGrace: 0.28  # Check-specific tuning value
+  engineSlabOffsetGrace: 0.12  # Tightened (movement 2A): inside engine compensation leniency budget cap
   engineSlabMaxHorizontal: 0.85  # Check-specific tuning value
   engineSlabRiseMinDy: 0.015  # Check-specific tuning value
   engineSlabRiseMaxDy: 0.62  # Check-specific tuning value

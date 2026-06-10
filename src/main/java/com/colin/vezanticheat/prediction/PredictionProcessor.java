@@ -34,9 +34,21 @@ import java.util.Deque;
 import java.util.List;
 
 /**
- * PredictionProcessor — Hybrid heuristic + simulation movement validator.
+ * PredictionProcessor — DEMOTED legacy heuristic + simulation movement validator.
  *
- * This is the central movement processing engine that runs for every position packet.
+ * <p>As of Phase 2A this is NO LONGER the movement authority. The Grim-style
+ * {@link com.colin.vezanticheat.engine.MovementCheckRunner} prediction engine is the sole speed
+ * authority. This processor is retained for two roles only:
+ * <ol>
+ *   <li><b>Velocity-session bridging</b> — {@link #onVelocity} / {@link #tickVelocitySession} still
+ *       drive the knockback envelope simulation, which the engine path consumes.</li>
+ *   <li><b>Emergency kill-switch fallback</b> — {@link #handleMovement} runs ONLY when
+ *       {@code engine.skip-legacy-movement-prediction=false} (or the engine is disabled), in which
+ *       case it provides {@code /vez debug} output and legacy movement validation. It is
+ *       dead-by-default and must not be deleted.</li>
+ * </ol>
+ *
+ * The historical hybrid description below applies only to the kill-switch fallback path:
  * It combines two approaches:
  *
  * 1. Heuristic (fast path): Quick threshold checks for obvious violations

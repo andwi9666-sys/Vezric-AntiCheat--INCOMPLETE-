@@ -25,6 +25,18 @@ public final class UncertaintyHandler {
     // Counters set by the runner before prediction.
     public int blockChangeTicks;     // nearby block changed within the last few ticks
     public int lastTeleportTicks = 1000;
+
+    /**
+     * COMPENSATION BUDGET CAP — the maximum TOTAL stacked lenience {@link #reduceOffset(double)} may
+     * subtract from a raw offset (default 0.12 blocks; aggressive profiles use 0.08). Without this a
+     * cheater that stacks multiple compensation triggers (block-update + multi-packet + 0.03 +
+     * hidden-ground) could buy enough lenience to hide a real violation. Set by MovementCheckRunner
+     * from config each tick; 0 or negative means "uncapped" (legacy behaviour) but it is always
+     * configured to a positive value in practice. Teleport lenience is exempt from the cap since a
+     * fresh teleport legitimately invalidates the whole prediction.
+     */
+    public double leniencyBudgetCap = 0.12D;
+
     public boolean collidedHorizontally;
     public boolean stuckOnEdge;
     public boolean influencedByBouncyBlock;
@@ -102,67 +114,83 @@ public final class UncertaintyHandler {
      * what OffsetHandler compares against the flag threshold.
      */
     public double reduceOffset(double offset) {
-        double reduced = offset;
+        // Accumulate every stacked compensation term so the TOTAL can be clamped to the budget cap.
+        // Teleport lenience is tracked separately and applied AFTER the clamp (it is exempt: a fresh
+        // teleport legitimately invalidates the entire prediction for a tick).
+        double lenience = 0.0D;
 
         if (player.pendingKnockback != null && !player.knockbackVerified) {
-            reduced -= 0.05D;
+            lenience += 0.05D;
         }
         if (player.pendingExplosion != null) {
-            reduced -= 0.12D;
+            lenience += 0.12D;
         }
         if (player.couldSkipTick) {
-            reduced -= 0.06D;
+            lenience += 0.06D;
         }
         if (blockChangeTicks > 0) {
-            reduced -= 0.05D;
+            lenience += 0.05D;
         }
         if (player.onSlime || influencedByBouncyBlock) {
-            reduced -= 0.08D;
+            lenience += 0.08D;
         }
         if (player.onIce) {
-            reduced -= 0.02D;
+            lenience += 0.02D;
         }
         if (player.inWeb || stuckSpeedTick) {
-            reduced -= 0.15D;
+            lenience += 0.15D;
         }
         if (player.onClimbable) {
-            reduced -= 0.05D;
+            lenience += 0.05D;
         }
         if (nearBoat) {
-            reduced -= 0.04D;
+            lenience += 0.04D;
         }
         if (pistonPushTick) {
-            reduced -= 0.05D;
+            lenience += 0.05D;
         }
         if (stepUpTick) {
-            reduced -= 0.10D;
+            lenience += 0.10D;
         }
         if (slabEdgeTick) {
-            reduced -= 0.08D;
+            lenience += 0.08D;
         }
         if (dropTick) {
-            reduced -= 0.08D;
+            lenience += 0.08D;
         }
         if (knockbackGraceTick) {
-            reduced -= 0.16D;
+            lenience += 0.16D;
         }
         if (combatMotionTick) {
-            reduced -= 0.10D;
+            lenience += 0.10D;
         }
         if (stuckOnEdge) {
-            reduced -= 0.05D;
+            lenience += 0.05D;
         }
         if (player.usingItem && player.itemInputScale > 0.25D) {
-            reduced -= 0.06D + ((player.itemInputScale - 0.2D) * 0.18D);
+            lenience += 0.06D + ((player.itemInputScale - 0.2D) * 0.18D);
         }
+        if (lowTps()) {
+            lenience += 0.05D;
+        }
+        lenience += pingUncertainty();
+
+        // Clamp the stacked compensation to the configured budget so triggers cannot be farmed
+        // together to mask a genuine offset. The web/stuck-speed case alone (0.15) can exceed a
+        // 0.12 cap; keep the larger of the cap and the single dominant web term so legit cobweb
+        // physics is never under-compensated, while still bounding multi-trigger stacking.
+        if (leniencyBudgetCap > 0.0D) {
+            double cap = leniencyBudgetCap;
+            if (player.inWeb || stuckSpeedTick) {
+                cap = Math.max(cap, 0.15D);
+            }
+            lenience = Math.min(lenience, cap);
+        }
+
+        double reduced = offset - lenience;
         if (lastTeleportTicks <= 1) {
             reduced -= 0.20D;
         }
-        if (lowTps()) {
-            reduced -= 0.05D;
-        }
-        reduced -= pingUncertainty();
-
         return Math.max(0.0D, reduced);
     }
 

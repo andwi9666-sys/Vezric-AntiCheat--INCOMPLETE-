@@ -226,7 +226,11 @@ public final class EngineMovementGrace {
         if (plugin == null || data == null) return false;
 
         String cfg = checkName == null ? "OffsetPrediction" : checkName;
-        double maxOffset = CheckConfigUtil.checkDouble(plugin, cfg, "engineSlabOffsetGrace", 0.28D);
+        // TIGHTENED (movement 2A): the old 0.28 slab/stair grace was wide enough to mask a real
+        // sub-threshold offset on every step surface. Replaced with a tighter buffered value that
+        // stays inside the engine compensation leniency budget cap (engine.compensation
+        // .leniency-budget-cap, default 0.12) so step-surface grace cannot be farmed past the cap.
+        double maxOffset = CheckConfigUtil.checkDouble(plugin, cfg, "engineSlabOffsetGrace", 0.12D);
         if (reducedOffset > maxOffset) return false;
 
         Location from = data.getLastMoveFrom();

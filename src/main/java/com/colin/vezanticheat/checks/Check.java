@@ -241,6 +241,13 @@ public abstract class Check {
     }
 
     protected boolean predictionSetback(Player p, PlayerData data, String reason) {
+        // ENGINE AUTHORITY: route setbacks through the central MovementEnforcement (engine-aware:
+        // resyncs the prediction engine, zeroes offset advantage, respects the circuit breaker)
+        // rather than the legacy PredictionProcessor path. Falls back to legacy only as a
+        // kill-switch when the engine is disabled.
+        if (plugin.engine() != null && plugin.engine().isEnabled()) {
+            return com.colin.vezanticheat.utils.MovementEnforcement.executeSetback(plugin, p, data, reason);
+        }
         if (plugin.prediction() != null) {
             return plugin.prediction().trySetback(p, data, reason);
         }
@@ -248,6 +255,9 @@ public abstract class Check {
     }
 
     protected boolean predictionSetback(Player p, PlayerData data, Location location, String reason) {
+        if (plugin.engine() != null && plugin.engine().isEnabled()) {
+            return com.colin.vezanticheat.utils.MovementEnforcement.executeSetback(plugin, p, data, reason);
+        }
         if (plugin.prediction() != null) {
             return plugin.prediction().trySetback(p, data, reason);
         }

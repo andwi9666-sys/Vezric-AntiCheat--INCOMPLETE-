@@ -351,7 +351,11 @@ nofall:
 engine:
   enabled: true  # false = legacy movement checks only
   shadow-legacy-duplicates: true  # true = skip FlyA-F/SpeedA-D when engine is on
-  skip-legacy-movement-prediction: true  # true = engine-only movement validation (keeps velocity session path)
+  # ENGINE SOLE AUTHORITY: the prediction engine is THE movement speed authority. The legacy
+  # heuristic PredictionProcessor.handleMovement is OFF by default (true below = engine-only,
+  # keeps only the velocity-session bridge). Set to false ONLY as an emergency kill-switch to
+  # demote the engine and re-enable the legacy heuristic.
+  skip-legacy-movement-prediction: true
   # Maintain a packet-synced block-change overlay (BLOCK_CHANGE / MULTI_BLOCK_CHANGE) on top of
   # the live world so collision sees latency-compensated blocks (defeats ghost-block phase).
   world-cache: true
@@ -362,10 +366,28 @@ engine:
   knockback-window-ms: 550
   knockback-grace-ms: 300
   combat-movement-grace-ms: 450
-  advantage-decay: 0.999
+  advantage-decay: 0.999  # (legacy, unused by long-window accumulator; kept for compat)
   advantage-threshold: 0.001
+  # LONG-WINDOW OFFSET ADVANTAGE: each tick's reduced offset above advantage-threshold accrues into
+  # a slow-decaying accumulator (catches sustained sub-threshold speed ~ratio 1.003-1.006). Clean
+  # ticks bleed it off at clean-decay-per-second (fraction per clean second), NOT a hard reset; it
+  # survives teleports and is zeroed only when a setback executes.
+  advantage-clean-decay-per-second: 0.25
+  advantage-cap: 2.0
   illegal-sprint-threshold: 0.14
   illegal-sneak-threshold: 0.04
+  # COMPENSATION BUDGET CAP: clamp TOTAL stacked uncertainty leniency so multiple compensation
+  # triggers (block-update + multi-packet + 0.03 + hidden-ground) cannot be farmed together to mask
+  # a real offset. Default 0.12 blocks; aggressive profiles use 0.08. Teleport lenience is exempt.
+  compensation:
+    leniency-budget-cap: 0.12
+  # CHUNK-UNLOAD HANDLING: instead of skipping validation when chunks are unloaded, enter an
+  # "unverified" mode that still accrues horizontal motion into the offset advantage and forces a
+  # resync setback if the unverified streak persists beyond max-ticks.
+  unverified:
+    max-ticks: 20
+    horizontal-accrual-floor: 0.30
+    accrual-factor: 0.5
   player-clock:
     enabled: true
     flag-ahead-ms: 110
@@ -374,6 +396,14 @@ engine:
     cancel-packet-min-drift-ms: 150
     setback: true
     setback-min-drift-ms: 200
+    # PERSISTENT DRIFT LEDGER: cumulative clock drift that is NOT reset by teleports (accrual pauses)
+    # or movement gaps (bounded debit only) so timer cheats cannot farm-and-reset. ledger-cap-ms caps
+    # the ledger; ledger-debit-cap-ms bounds how much a single behind-tick can credit back; a gap
+    # >= gap-debit-trigger-ms debits gap-debit-ms (never a full reset).
+    ledger-cap-ms: 2000
+    ledger-debit-cap-ms: 20
+    gap-debit-trigger-ms: 225
+    gap-debit-ms: 50
 
 # Blatant movement packet cancel + immediate setback enforcement
 movement-enforcement:

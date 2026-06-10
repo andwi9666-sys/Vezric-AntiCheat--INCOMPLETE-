@@ -21,7 +21,7 @@ PredictionOffset:
   engineSlabFallMaxDy: 0.06  # Check-specific tuning value
   engineSlabFallMinDy: -0.65  # Check-specific tuning value
   engineSlabMaxHorizontal: 0.85  # Check-specific tuning value
-  engineSlabOffsetGrace: 0.28  # Check-specific tuning value
+  engineSlabOffsetGrace: 0.12  # Tightened (movement 2A): inside engine compensation leniency budget cap
   engineSlabRiseMaxDy: 0.62  # Check-specific tuning value
   engineSlabRiseMinDy: 0.015  # Check-specific tuning value
   moderateOffset: 0.14  # Packet cancel without full setback

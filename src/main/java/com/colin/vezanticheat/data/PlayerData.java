@@ -113,6 +113,14 @@ public class PlayerData {
     private boolean lastClientGround;
     private long lastClientGroundUpdateMs;
 
+    // Phase 2A engine-authority field contract (read by movement/prediction tier workers).
+    // serverGround is the engine collision verdict at the start-of-tick position; it is published
+    // alongside the raw client claim so ground-spoof checks can compare the two truths.
+    private boolean serverGround;
+    // Chunk-unload "unverified" mode: how many consecutive ticks the engine could not validate
+    // because surrounding chunks were not loaded. Used to force a resync setback if it persists.
+    private int engineUnverifiedTicks;
+
     // GLOBAL VL (optional)
     private int totalVl;
 
@@ -645,6 +653,26 @@ public class PlayerData {
     public void setLastEngineResult(com.colin.vezanticheat.engine.EngineResult result) { this.lastEngineResult = result; }
     public double getEngineOffsetAdvantage() { return engineOffsetAdvantage; }
     public void setEngineOffsetAdvantage(double engineOffsetAdvantage) { this.engineOffsetAdvantage = engineOffsetAdvantage; }
+
+    // ---- Phase 2A field contract for prediction/movement tier workers (2B/2C/2D) ----
+
+    /** Long-window accumulated prediction offset advantage (Grim-style, slow-decaying). */
+    public double getOffsetAdvantage() { return engineOffsetAdvantage; }
+
+    /** Engine collision-derived ground truth at the start-of-tick position. */
+    public boolean isServerGround() { return serverGround; }
+    public void setServerGround(boolean serverGround) { this.serverGround = serverGround; }
+
+    /** Raw client ground claim from the most recent flying packet. */
+    public boolean getClientGround() { return lastClientGround; }
+
+    /** Persistent cumulative clock-drift ledger in ms (timer-cheat farm-and-reset proof). */
+    public long getCumulativeDriftMs() { return playerClockState.cumulativeDriftMs; }
+
+    public int getEngineUnverifiedTicks() { return engineUnverifiedTicks; }
+    public void setEngineUnverifiedTicks(int engineUnverifiedTicks) { this.engineUnverifiedTicks = engineUnverifiedTicks; }
+    public int incrementEngineUnverifiedTicks() { return ++engineUnverifiedTicks; }
+    public void resetEngineUnverifiedTicks() { this.engineUnverifiedTicks = 0; }
     public boolean isPendingSetback() { return pendingSetback; }
     public void setPendingSetback(boolean pendingSetback) { this.pendingSetback = pendingSetback; }
     public long getPendingSetbackSinceMs() { return pendingSetbackSinceMs; }

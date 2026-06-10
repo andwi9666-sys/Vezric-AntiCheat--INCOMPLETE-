@@ -117,8 +117,23 @@ public class PlayerListener implements Listener {
         LagProfileUtil.handleFlyingInterval(plugin, p, d, now, interval);
         d.setLastFlyingPacket(now);
 
+        // ENGINE SOLE AUTHORITY: the prediction engine (PacketListener-driven, or this Bukkit-move
+        // fallback when PacketEvents is unavailable) is the movement speed authority. The legacy
+        // heuristic PredictionProcessor.handleMovement is only re-enabled as an emergency
+        // kill-switch via engine.skip-legacy-movement-prediction=false; otherwise we only bridge
+        // the velocity session here.
         if (plugin.prediction() != null) {
-            plugin.prediction().handleMovement(p, d, p.isOnGround(), now, true);
+            boolean legacyAuthoritative = plugin.engine() == null
+                    || !plugin.engine().isEnabled()
+                    || !plugin.getConfig().getBoolean("engine.skip-legacy-movement-prediction", true);
+            if (legacyAuthoritative) {
+                plugin.prediction().handleMovement(p, d, p.isOnGround(), now, true);
+            } else {
+                if (plugin.engine() != null) {
+                    plugin.engine().onMovement(p, d, d.getLastMoveFrom(), d.getLastLoc(), p.isOnGround(), true, now);
+                }
+                plugin.prediction().tickVelocitySession(p, d, now);
+            }
         }
         plugin.tierChecks().onMove(p, d);
         plugin.tierChecks().onFlyingPacket(p, d, now);
