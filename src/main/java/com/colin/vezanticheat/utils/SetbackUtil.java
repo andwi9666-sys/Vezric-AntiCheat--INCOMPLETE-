@@ -73,16 +73,38 @@ public final class SetbackUtil {
         if (isUsableTarget(current, anchor)
                 && anchorTime > 0L
                 && now >= anchorTime
-                && (now - anchorTime) <= maxAgeMs) {
+                && (now - anchorTime) <= maxAgeMs
+                && isTargetSafe(anchor)) {
             return withCurrentLook(anchor, current);
         }
 
+        // Fallback: last recorded move-from position. Apply the SAME max-age + same-world checks
+        // the primary anchor has (lastMoveMillis is stamped alongside lastMoveFrom) so we never
+        // teleport to a stale or cross-world position.
         Location previousMove = data.getLastMoveFrom();
-        if (isUsableTarget(current, previousMove) && isServerGroundAt(previousMove)) {
+        long previousMoveTime = data.getLastMoveMillis();
+        if (isUsableTarget(current, previousMove)
+                && previousMoveTime > 0L
+                && now >= previousMoveTime
+                && (now - previousMoveTime) <= maxAgeMs
+                && isServerGroundAt(previousMove)
+                && isTargetSafe(previousMove)) {
             return withCurrentLook(previousMove, current);
         }
 
         return null;
+    }
+
+    /**
+     * Execution-time safety: the target chunk must be loaded and the block below must be solid.
+     * Prevents teleporting a player into unloaded terrain or into the air.
+     */
+    private static boolean isTargetSafe(Location target) {
+        if (target == null || target.getWorld() == null) return false;
+        int cx = (int) Math.floor(target.getX()) >> 4;
+        int cz = (int) Math.floor(target.getZ()) >> 4;
+        if (!target.getWorld().isChunkLoaded(cx, cz)) return false;
+        return isServerGroundAt(target);
     }
 
     private static boolean isMovementValid(VezAntiCheat plugin, PlayerData data, EngineResult engine) {

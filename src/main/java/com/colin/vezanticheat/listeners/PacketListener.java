@@ -209,7 +209,10 @@ public class PacketListener extends PacketListenerAbstract {
             // Position tracking
             if (positionIncluded && packetLoc != null) {
                 d.badPackets().notePositionPacket(now);
-                d.incrementPositionPacketsThisTick(now / 50L);
+                // Bucket by the real server tick (from the 1-tick TransactionTracker task) rather than
+                // wall-clock/50, which mis-buckets under lag and can split or merge a single tick.
+                d.incrementPositionPacketsThisTick(
+                        com.colin.vezanticheat.engine.TransactionTracker.currentServerTick());
                 Location previous = d.getLastLoc();
                 if (previous == null) previous = p.getLocation().clone();
                 else previous = previous.clone();
@@ -454,7 +457,10 @@ public class PacketListener extends PacketListenerAbstract {
                     cursorY = cursor.getY();
                     cursorZ = cursor.getZ();
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                // Cursor is optional on some protocol versions; never crash the Netty thread over it.
+                logThrottled("block-place-cursor", ex);
+            }
 
             Location packetLoc = d.getLastLoc() == null ? p.getLocation().clone() : d.getLastLoc().clone();
             d.setLastBlockPlacePacket(
@@ -541,18 +547,27 @@ public class PacketListener extends PacketListenerAbstract {
         try {
             action.run();
         } catch (Throwable t) {
-            long now = System.currentTimeMillis();
-            Long last = lastListenerExceptionLogMs.get(stage);
-            if (last != null && now - last < EXCEPTION_LOG_INTERVAL_MS) {
-                return;
-            }
-            lastListenerExceptionLogMs.put(stage, now);
-            plugin.getLogger().log(Level.WARNING,
-                    "PacketListener " + stage + " failed: "
-                            + t.getClass().getSimpleName() + " - " + t.getMessage()
-                            + " (further errors throttled for 30s)",
-                    t);
+            logThrottled(stage, t);
         }
+    }
+
+    /**
+     * Log a swallowed packet-thread exception at WARNING, throttled per stage so a recurring fault
+     * cannot spam the console or stall the Netty thread. The catch is always kept — we never
+     * propagate from the packet path.
+     */
+    private void logThrottled(String stage, Throwable t) {
+        long now = System.currentTimeMillis();
+        Long last = lastListenerExceptionLogMs.get(stage);
+        if (last != null && now - last < EXCEPTION_LOG_INTERVAL_MS) {
+            return;
+        }
+        lastListenerExceptionLogMs.put(stage, now);
+        plugin.getLogger().log(Level.WARNING,
+                "PacketListener " + stage + " failed: "
+                        + t.getClass().getSimpleName() + " - " + t.getMessage()
+                        + " (further errors throttled for 30s)",
+                t);
     }
 
     private float wrapAngleTo180(float angle) {

@@ -33,11 +33,16 @@ public final class TierPunishmentExecutor {
         }
     }
 
+    /**
+     * Scheduled global VL decay for a single (player, check) pair. Called by the repeating sweep
+     * task in {@link VezAntiCheat}. Honors the configurable grace window and per-check decay rate,
+     * and floors the pool at zero (cleaning up the store entry).
+     */
     public void tickDecay(Player player, TierCheck check, long nowMs) {
         if (player == null || check == null) return;
-        long grace = plugin.getConfig().getLong("tier.vl-decay-grace-ms", 15000L);
         double rate = check.decayPerSecond();
         if (rate <= 0.0D) return;
-        // decay handled in TierCheck.fail path via scheduled decay; lightweight per-tick optional
+        long grace = plugin.getConfig().getLong("tier.vl-decay-grace-ms", 15000L);
+        vlStore.tickDecay(player.getUniqueId(), check.vlPoolName(), rate, grace, nowMs);
     }
 }

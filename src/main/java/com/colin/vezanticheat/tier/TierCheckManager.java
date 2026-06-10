@@ -43,6 +43,14 @@ public final class TierCheckManager {
         this.runners.add(new PredictionRunner(plugin, registry.forTier(CheckTier.PREDICTION)));
     }
 
+    /**
+     * Drop all per-check buffer/decay state. Called from the /vez reload path so stale buffers
+     * from before the reload do not carry into freshly reloaded thresholds.
+     */
+    public void clearBuffers() {
+        TierCheck.clearAll();
+    }
+
     public int count() { return registry.count(); }
     public TierCheckRegistry registry() { return registry; }
     public CheckVLStore vlStore() { return vlStore; }

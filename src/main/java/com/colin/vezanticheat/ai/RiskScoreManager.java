@@ -8,6 +8,7 @@ import com.colin.vezanticheat.utils.PingUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,6 +39,7 @@ public final class RiskScoreManager {
         }
 
         long now = System.currentTimeMillis();
+        evictStale(now);
         RiskState state = states.computeIfAbsent(player.getUniqueId(), key -> new RiskState());
         decayState(state, now);
 
@@ -71,8 +73,44 @@ public final class RiskScoreManager {
     public double getScore(UUID uuid) {
         RiskState state = states.get(uuid);
         if (state == null) return 0.0D;
-        decayState(state, System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        decayState(state, now);
+        // Decay-on-read: a state that has fully decayed and gone stale is dropped so the store
+        // does not retain entries for players who stopped flagging long ago.
+        if (RiskWindow.shouldEvict(state.score, state.lastUpdateMs, now, windowMs())) {
+            states.remove(uuid, state);
+            return 0.0D;
+        }
         return state.score;
+    }
+
+    /** Number of tracked player states (for diagnostics/tests). */
+    public int trackedStateCount() {
+        return states.size();
+    }
+
+    /**
+     * Sweep the whole store and drop any state that has decayed to zero and aged past the
+     * retention window. Cheap to call frequently; bounded by the number of online-ish players.
+     */
+    public void evictStale(long now) {
+        long window = windowMs();
+        for (Iterator<Map.Entry<UUID, RiskState>> it = states.entrySet().iterator(); it.hasNext();) {
+            Map.Entry<UUID, RiskState> e = it.next();
+            RiskState state = e.getValue();
+            if (state == null) {
+                it.remove();
+                continue;
+            }
+            decayState(state, now);
+            if (RiskWindow.shouldEvict(state.score, state.lastUpdateMs, now, window)) {
+                it.remove();
+            }
+        }
+    }
+
+    private long windowMs() {
+        return Math.max(0L, plugin.getConfig().getLong("ai.risk-window-ms", 45_000L));
     }
 
     public void reload() {
@@ -89,8 +127,7 @@ public final class RiskScoreManager {
         if (elapsed <= 0L) return;
 
         double decayPerSecond = plugin.getConfig().getDouble("ai.decay-per-second", 0.35D);
-        double decay = (elapsed / 1000.0D) * decayPerSecond;
-        state.score = Math.max(0.0D, state.score - decay);
+        state.score = RiskWindow.decay(state.score, state.lastUpdateMs, now, decayPerSecond);
         state.lastUpdateMs = now;
     }
 

@@ -31,6 +31,9 @@ public final class CombatRewind {
     public static CombatResult compute(VezAntiCheat plugin, org.bukkit.entity.Player attacker, PlayerData attackerData,
                                        Location eye, int targetEntityId, Entity bukkitTarget,
                                        PlayerData targetData, long attackTime) {
+        if (plugin == null) {
+            return CombatResult.invalid(attackTime, "no-plugin");
+        }
         boolean engineOn = plugin.getConfig().getBoolean("combat-engine.enabled", true);
         TrackedEntity tracked = engineOn && attackerData != null
                 ? attackerData.getCompensatedEntities().get(targetEntityId)
@@ -133,7 +136,7 @@ public final class CombatRewind {
     private static CombatResult fromLegacy(VezAntiCheat plugin, org.bukkit.entity.Player attacker, Location eye,
                                            Entity bukkitTarget, PlayerData targetData, long attackTime) {
         if (eye == null || bukkitTarget == null) {
-            return CombatResult.builder().timeMs(attackTime).tracked(false).debug("untracked no-target").build();
+            return CombatResult.invalid(attackTime, "untracked no-target");
         }
         int ping = PingUtil.getPing(attacker);
         long rewindMs = CombatUtil.compensationWindowMs(ping,
@@ -142,7 +145,7 @@ public final class CombatRewind {
                 plugin.getConfig().getLong("combat-engine.max-rewind-ms", 800L));
         CombatUtil.ReachContext ctx = CombatUtil.analyzeReach(eye, bukkitTarget, targetData, attackTime, rewindMs);
         if (ctx == null) {
-            return CombatResult.builder().timeMs(attackTime).tracked(false).debug("untracked no-ctx").build();
+            return CombatResult.invalid(attackTime, "untracked no-ctx");
         }
         String debug = "legacy rew=" + r(ctx.getCompensatedDistance()) + " cur=" + r(ctx.getCurrentDistance())
                 + " ping=" + ping + " age=" + ctx.getCompensatedAgeMs() + "ms";
@@ -215,7 +218,7 @@ public final class CombatRewind {
      * any of their tolerance/buffer logic.
      */
     public static CombatUtil.ReachContext toReachContext(CombatResult r) {
-        if (r == null) return null;
+        if (r == null || !r.valid) return null;
         return new CombatUtil.ReachContext(
                 r.currentDistance,
                 r.rewoundDistance,

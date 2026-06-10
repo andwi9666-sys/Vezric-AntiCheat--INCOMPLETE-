@@ -16,6 +16,7 @@ import org.bukkit.Location;
 public final class CombatResult {
 
     public final long timeMs;
+    public final boolean valid;
     public final boolean tracked;
     public final double rewoundDistance;
     public final double currentDistance;
@@ -32,6 +33,7 @@ public final class CombatResult {
 
     private CombatResult(Builder b) {
         this.timeMs = b.timeMs;
+        this.valid = b.valid;
         this.tracked = b.tracked;
         this.rewoundDistance = b.rewoundDistance;
         this.currentDistance = b.currentDistance;
@@ -45,6 +47,17 @@ public final class CombatResult {
         this.snapshotsConsidered = b.snapshotsConsidered;
         this.chosenLocation = b.chosenLocation;
         this.debug = b.debug;
+    }
+
+    /** Whether this result carries usable reach data. False means the producer could not compute. */
+    public boolean isValid() {
+        return valid;
+    }
+
+    /** An invalid result with no usable data; consumers must check {@link #isValid()} before reading. */
+    public static CombatResult invalid(long timeMs, String debug) {
+        return builder().timeMs(timeMs).valid(false).tracked(false)
+                .debug(debug == null ? "invalid" : debug).build();
     }
 
     public Location getChosenLocation() {
@@ -63,6 +76,7 @@ public final class CombatResult {
 
     public static final class Builder {
         private long timeMs;
+        private boolean valid = true;
         private boolean tracked;
         private double rewoundDistance;
         private double currentDistance;
@@ -78,6 +92,7 @@ public final class CombatResult {
         private String debug = "";
 
         public Builder timeMs(long v) { this.timeMs = v; return this; }
+        public Builder valid(boolean v) { this.valid = v; return this; }
         public Builder tracked(boolean v) { this.tracked = v; return this; }
         public Builder rewoundDistance(double v) { this.rewoundDistance = v; return this; }
         public Builder currentDistance(double v) { this.currentDistance = v; return this; }

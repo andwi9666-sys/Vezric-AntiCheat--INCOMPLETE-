@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public class BanwaveManager {
 
@@ -35,7 +36,10 @@ public class BanwaveManager {
         try {
             if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
             if (!file.exists()) file.createNewFile();
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING,
+                    "BanwaveManager: could not create banwave.yml: " + ex.getMessage(), ex);
+        }
 
         yml = YamlConfiguration.loadConfiguration(file);
         entries.clear();
@@ -58,7 +62,10 @@ public class BanwaveManager {
                         node.getLong("executeAt", System.currentTimeMillis()),
                         node.getBoolean("manual", false)
                 ));
-            } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.WARNING,
+                        "BanwaveManager: skipping malformed banwave entry '" + key + "': " + ex.getMessage(), ex);
+            }
         }
     }
 
@@ -77,7 +84,10 @@ public class BanwaveManager {
 
         try {
             yml.save(file);
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING,
+                    "BanwaveManager: failed to save banwave.yml: " + ex.getMessage(), ex);
+        }
     }
 
     public void startAutoTask() {

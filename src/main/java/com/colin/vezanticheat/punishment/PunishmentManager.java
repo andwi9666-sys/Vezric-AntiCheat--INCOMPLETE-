@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public class PunishmentManager {
 
@@ -43,7 +44,10 @@ public class PunishmentManager {
         try {
             if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
             if (!file.exists()) file.createNewFile();
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING,
+                    "PunishmentManager: could not create punishments.yml: " + ex.getMessage(), ex);
+        }
         yml = YamlConfiguration.loadConfiguration(file);
         recentPunishmentTimes.clear();
         List<Long> stored = yml.getLongList("recent-punishments");
@@ -61,7 +65,10 @@ public class PunishmentManager {
         yml.set("recent-punishments", new ArrayList<Long>(recentPunishmentTimes));
         try {
             yml.save(file);
-        } catch (Exception ignored) {}
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING,
+                    "PunishmentManager: failed to save punishments.yml: " + ex.getMessage(), ex);
+        }
     }
 
     public void startAnnouncementTask() {

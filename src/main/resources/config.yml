@@ -14,6 +14,11 @@ config-version: 16
 tier:
   vl-decay-grace-ms: 15000
   setback-blatant-offset: 0.15
+  # Scheduled global VL decay sweep (online players x checks). Without this, per-check VL never
+  # decays globally — only inside per-check decay() hooks that most checks never call.
+  vl-decay-task:
+    enabled: true
+    interval-ticks: 20  # 20 ticks = 1s; decay rate per check is each check's "decay" key
 
 # Player-vs-player combat cheat mitigation: drop hits + punitive setback (no movement correction)
 combat-mitigation:
@@ -383,7 +388,14 @@ prism:
 # Block movement until server setback is accepted (NoRotate / Disabler counter)
 setback-blocker:
   enabled: true
-  max-pending-ms: 2000
+  max-pending-ms: 800
+  # Setback circuit breaker: token-bucket rate limiter. When a player is set back more than
+  # max-setbacks times within window-ms, stop teleporting (which loops) and hard-freeze them by
+  # re-sending their last valid position until the bucket refills.
+  circuit-breaker:
+    enabled: true
+    max-setbacks: 3
+    window-ms: 2000
 
 # Lightweight AI risk scoring + CSV evidence export (shadow by default)
 ai:

@@ -72,7 +72,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  * - Active development and 1.8-1.21 support
  * - Proper Netty pipeline injection for async packet processing
  */
-public final class VezAntiCheat extends JavaPlugin {
+public class VezAntiCheat extends JavaPlugin {
 
     // Core managers — each handles one responsibility
     private PlayerDataManager dataManager;       // Per-player state lifecycle
@@ -99,6 +99,7 @@ public final class VezAntiCheat extends JavaPlugin {
     private com.colin.vezanticheat.combat.CombatStaffAlerter combatAlerter;
     private ClientBrandListener clientBrandListener;
     private volatile boolean packetHooksRegistered;
+    private int vlDecayTaskId = -1; // repeating scheduled global VL decay sweep
 
     // Whether packet interception is active (always true with PacketEvents)
     private boolean protocolLib;
@@ -248,6 +249,8 @@ public final class VezAntiCheat extends JavaPlugin {
             getLogger().info("LegacyKB not detected. Using local knockback-profile fallback.");
         }
 
+        startDecayTask();
+
         getLogger().info("VezAntiCheat enabled. PacketEvents=true tierChecks="
                 + tierCheckManager.count()
                 + " packetHooks=" + packetHooksRegistered
@@ -314,6 +317,7 @@ public final class VezAntiCheat extends JavaPlugin {
     @Override
     public void onDisable() {
         packetHooksRegistered = false;
+        stopDecayTask();
         if (packetListener != null) packetListener.unhook();
         if (packetWorldReader != null) packetWorldReader.unhook();
         if (knockbackHandler != null) knockbackHandler.unhook();
@@ -370,6 +374,40 @@ public final class VezAntiCheat extends JavaPlugin {
         this.combatSettings = com.colin.vezanticheat.combat.CombatAnalysisSettings.fromPlugin(this);
         if (combatAnalyzer != null) {
             combatSettings.applyTo(combatAnalyzer, getConfig());
+        }
+    }
+
+    /**
+     * Starts (or restarts) the repeating scheduled VL decay sweep. Every {@code interval-ticks}
+     * (default 20 = 1s) it sweeps every online player x every registered tier check and decays
+     * their per-check VL pool. Without this, VL only decayed inside the per-check {@code decay()}
+     * hooks (which most checks never call), so VL never fell globally.
+     */
+    public void startDecayTask() {
+        stopDecayTask();
+        if (tierCheckManager == null) return;
+        if (!getConfig().getBoolean("tier.vl-decay-task.enabled", true)) return;
+        long interval = Math.max(1L, getConfig().getLong("tier.vl-decay-task.interval-ticks", 20L));
+        final com.colin.vezanticheat.verdict.TierPunishmentExecutor punisher = tierCheckManager.punisher();
+        final java.util.List<com.colin.vezanticheat.tier.TierCheck> checks = tierCheckManager.registry().all();
+        this.vlDecayTaskId = Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
+            @Override
+            public void run() {
+                long now = System.currentTimeMillis();
+                for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
+                    for (com.colin.vezanticheat.tier.TierCheck check : checks) {
+                        punisher.tickDecay(player, check, now);
+                    }
+                }
+            }
+        }, interval, interval).getTaskId();
+    }
+
+    /** Cancels the repeating VL decay sweep if running. */
+    public void stopDecayTask() {
+        if (vlDecayTaskId != -1) {
+            Bukkit.getScheduler().cancelTask(vlDecayTaskId);
+            vlDecayTaskId = -1;
         }
     }
 

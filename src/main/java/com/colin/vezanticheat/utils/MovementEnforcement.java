@@ -14,7 +14,29 @@ import org.bukkit.entity.Player;
  */
 public final class MovementEnforcement {
 
+    /** Per-player setback circuit breaker. Lazily configured from config on first use. */
+    private static volatile SetbackRateLimiter rateLimiter;
+    private static volatile int rlCapacity = -1;
+    private static volatile long rlWindowMs = -1L;
+
     private MovementEnforcement() {}
+
+    private static SetbackRateLimiter rateLimiter(VezAntiCheat plugin) {
+        int cap = plugin.getConfig().getInt("setback-blocker.circuit-breaker.max-setbacks", 3);
+        long window = plugin.getConfig().getLong("setback-blocker.circuit-breaker.window-ms", 2000L);
+        SetbackRateLimiter limiter = rateLimiter;
+        if (limiter == null || rlCapacity != cap || rlWindowMs != window) {
+            synchronized (MovementEnforcement.class) {
+                if (rateLimiter == null || rlCapacity != cap || rlWindowMs != window) {
+                    rateLimiter = new SetbackRateLimiter(cap, window);
+                    rlCapacity = cap;
+                    rlWindowMs = window;
+                }
+                limiter = rateLimiter;
+            }
+        }
+        return limiter;
+    }
 
     public static void requestImmediateSetback(VezAntiCheat plugin, Player player, PlayerData data,
                                                String reason, long delayMs) {
@@ -73,24 +95,55 @@ public final class MovementEnforcement {
         }
 
         Location target = SetbackUtil.resolveSetbackTarget(plugin, player, data);
-        if (target == null || target.getWorld() == null) return false;
+        if (target == null || target.getWorld() == null) {
+            // No safe/valid anchor (stale, cross-world, unloaded chunk, or air below). Skip rather
+            // than teleport into an invalid position; emit a diagnostic for tuning.
+            if (plugin.diagnostics() != null) {
+                plugin.diagnostics().record(player.getUniqueId(), "MovementEnforcement",
+                        "setback-skip-no-target", reason);
+            }
+            return false;
+        }
 
         final Location setback = target.clone();
         setback.setWorld(player.getWorld());
         setback.setYaw(player.getLocation().getYaw());
         setback.setPitch(player.getLocation().getPitch());
 
+        // Circuit breaker: if the player has been set back too many times in a short window,
+        // do NOT teleport again (which spirals into a setback loop). Instead hard-freeze them by
+        // re-sending the last valid position and keeping the pending-setback block engaged until
+        // the bucket refills.
+        long now = System.currentTimeMillis();
+        if (plugin.getConfig().getBoolean("setback-blocker.circuit-breaker.enabled", true)
+                && !rateLimiter(plugin).tryAcquire(player.getUniqueId(), now)) {
+            Location freeze = data.getPendingSetbackTarget();
+            if (freeze == null || freeze.getWorld() == null) freeze = setback;
+            sendImmediatePositionPacket(player, freeze);
+            SetbackBlocker.noteServerSetback(data, freeze);
+            long exemptHold = plugin.getConfig().getLong("prediction.setback.teleport-exempt-ms", 900L);
+            data.markTeleportExempt(exemptHold);
+            if (plugin.diagnostics() != null) {
+                plugin.diagnostics().record(player.getUniqueId(), "MovementEnforcement",
+                        "circuit-breaker-freeze", reason);
+            }
+            return false;
+        }
+
+        // Exemption ordering: mark teleport exemption and engage the pending-setback block BEFORE
+        // sending the S08 position packet. Otherwise in-flight movement packets that arrive between
+        // the snap and the exemption mark re-flag and trigger another setback (loop).
+        SetbackBlocker.noteServerSetback(data, setback);
+        long exemptMs = plugin.getConfig().getLong("prediction.setback.teleport-exempt-ms", 900L);
+        data.markTeleportExempt(exemptMs);
+
         sendImmediatePositionPacket(player, setback);
         syncServerPosition(plugin, player, data, setback);
         data.setEngineOffsetAdvantage(0.0D);
-        data.clearPendingSetback();
 
         if (plugin.diagnostics() != null) {
             plugin.diagnostics().record(player.getUniqueId(), "MovementEnforcement", "setback", reason);
         }
-        SetbackBlocker.noteServerSetback(data, setback);
-        long exemptMs = plugin.getConfig().getLong("prediction.setback.teleport-exempt-ms", 900L);
-        data.markTeleportExempt(exemptMs);
         return true;
     }
 
@@ -110,11 +163,13 @@ public final class MovementEnforcement {
         snap.setYaw(player.getLocation().getYaw());
         snap.setPitch(player.getLocation().getPitch());
 
-        sendImmediatePositionPacket(player, snap);
-        syncPunitivePosition(plugin, player, data, snap);
-
+        // Exemption ordering: engage the pending-setback block and mark teleport exemption BEFORE
+        // sending the S08 packet so in-flight movement packets do not re-flag and loop.
         SetbackBlocker.noteServerSetback(data, snap);
         data.markTeleportExempt(Math.max(0L, teleportExemptMs));
+
+        sendImmediatePositionPacket(player, snap);
+        syncPunitivePosition(plugin, player, data, snap);
 
         if (plugin.diagnostics() != null) {
             plugin.diagnostics().record(player.getUniqueId(), "CombatMitigation", "punitive-setback", reason);

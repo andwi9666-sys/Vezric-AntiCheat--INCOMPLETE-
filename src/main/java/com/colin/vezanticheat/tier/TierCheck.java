@@ -92,6 +92,36 @@ public abstract class TierCheck {
     protected TierPunishmentExecutor punisher() { return plugin.tierChecks().punisher(); }
     protected MitigationPolicy mitigation() { return plugin.tierChecks().mitigation(); }
 
+    /**
+     * Remove all per-check buffer/decay state for one player. Call on quit/reload so the static
+     * maps keyed "UUID:checkName" do not grow without bound. Matches keys by the "{uuid}:" prefix
+     * so every check's entry for that player is dropped in one pass.
+     */
+    public static void clearPlayer(UUID id) {
+        if (id == null) return;
+        String prefix = id.toString() + ":";
+        removeByPrefix(BUFFERS, prefix);
+        removeByPrefix(LAST_FLAG_MS, prefix);
+        removeByPrefix(LAST_DECAY_MS, prefix);
+    }
+
+    /** Drop all buffered/decay state for every player (e.g. on /vez reload). */
+    public static void clearAll() {
+        BUFFERS.clear();
+        LAST_FLAG_MS.clear();
+        LAST_DECAY_MS.clear();
+    }
+
+    private static void removeByPrefix(ConcurrentHashMap<String, ?> map, String prefix) {
+        if (map.isEmpty()) return;
+        for (java.util.Iterator<String> it = map.keySet().iterator(); it.hasNext();) {
+            String key = it.next();
+            if (key != null && key.startsWith(prefix)) {
+                it.remove();
+            }
+        }
+    }
+
     private String bufferKey(UUID id) { return id + ":" + name; }
 
     protected int buffer(UUID id) {

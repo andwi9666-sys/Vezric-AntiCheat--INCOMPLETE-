@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
+import java.util.logging.Level;
 
 /**
  * Append-only CSV evidence export for flagged events.
@@ -51,12 +52,18 @@ public final class EvidenceManager {
                     + csv(debug) + ","
                     + csv(timeFormat.format(new Date(timestampMs))));
             writer.newLine();
-        } catch (IOException ignored) {
+        } catch (IOException ex) {
+            plugin.getLogger().log(Level.WARNING,
+                    "EvidenceManager: failed to append evidence row to " + file.getName()
+                            + ": " + ex.getMessage(), ex);
         } finally {
             if (writer != null) {
                 try {
                     writer.close();
-                } catch (IOException ignored) {}
+                } catch (IOException ex) {
+                    plugin.getLogger().log(Level.FINE,
+                            "EvidenceManager: failed to close evidence writer: " + ex.getMessage(), ex);
+                }
             }
         }
     }

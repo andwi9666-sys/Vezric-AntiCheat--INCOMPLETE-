@@ -36,6 +36,8 @@ public final class ClientBrandListener implements Listener, PluginMessageListene
             plugin.getServer().getMessenger().unregisterIncomingPluginChannel(plugin, "MC|Brand", this);
             plugin.getServer().getMessenger().unregisterIncomingPluginChannel(plugin, "minecraft:brand", this);
         } catch (Exception ignored) {
+            // Channel may not have been registered (older API / namespaced channel absent);
+            // unregister is best-effort during shutdown.
         }
     }
 

@@ -331,8 +331,10 @@ public class VezCommand implements CommandExecutor {
             plugin.reloadConfig();
             plugin.cfg().reload();
             plugin.tierCfg().reload();
+            if (plugin.tierChecks() != null) plugin.tierChecks().clearBuffers();
             if (plugin.riskScore() != null) plugin.riskScore().reload();
             plugin.reloadCombatSettings();
+            plugin.startDecayTask(); // re-arm scheduled VL decay with reloaded rate/interval
             sender.sendMessage(c("&6[Vez] &aConfig reloaded."));
             return true;
         }
