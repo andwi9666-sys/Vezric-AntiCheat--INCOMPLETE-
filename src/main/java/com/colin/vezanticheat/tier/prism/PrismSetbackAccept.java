@@ -53,7 +53,6 @@ public final class PrismSetbackAccept extends TierCheck {
                     "ignored-setback dist=" + round3(dist) + " target=" + fmt(target));
             MovementEnforcement.requestBlatantEnforcement(plugin, p, data,
                     "PrismSetbackAccept dist=" + round3(dist));
-            data.clearPendingSetback();
             resetBuffer(p);
         } else {
             verbose(p, "buf=" + buffer(p.getUniqueId()) + "/" + bufferToFlag + " setback-dist=" + round3(dist));

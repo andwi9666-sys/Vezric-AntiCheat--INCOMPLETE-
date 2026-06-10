@@ -56,13 +56,12 @@ public class CombatAnalyzerAccuracySpikeTest {
         Assert.assertNotNull(merged);
         Assert.assertNotNull(merged.getPreAimResult());
         Assert.assertNotNull(merged.getAccuracySpikeResult());
-        Assert.assertEquals(
-                geometry.getSuspiciousScore()
-                        + merged.getPreAimResult().getSuspiciousScore()
-                        + merged.getAccuracySpikeResult().getSuspiciousScore()
-                        + merged.getAimCorrelationResult().getSuspiciousScore(),
-                merged.getSuspiciousScore(),
-                0.001D);
+        double componentSum = geometry.getSuspiciousScore()
+                + merged.getPreAimResult().getSuspiciousScore()
+                + merged.getAccuracySpikeResult().getSuspiciousScore()
+                + merged.getAimCorrelationResult().getSuspiciousScore();
+        Assert.assertTrue(merged.getSuspiciousScore() >= componentSum);
+        Assert.assertEquals(componentSum + 1.5D, merged.getSuspiciousScore(), 0.001D);
     }
 
     @Test

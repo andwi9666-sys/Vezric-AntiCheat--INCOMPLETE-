@@ -393,7 +393,7 @@ engine:
   # resync setback if the unverified streak persists beyond max-ticks.
   unverified:
     max-ticks: 20
-    horizontal-accrual-floor: 0.30
+    horizontal-accrual-floor: 0.20
     accrual-factor: 0.5
   player-clock:
     enabled: true
@@ -425,7 +425,7 @@ prism:
 # Block movement until server setback is accepted (NoRotate / Disabler counter)
 setback-blocker:
   enabled: true
-  max-pending-ms: 800
+  max-pending-ms: 2000
   # Setback circuit breaker: token-bucket rate limiter. When a player is set back more than
   # max-setbacks times within window-ms, stop teleporting (which loops) and hard-freeze them by
   # re-sending their last valid position until the bucket refills.

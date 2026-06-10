@@ -57,6 +57,21 @@ combat-analysis:
     quarter-min-ms: 500
     quarter-max-ms: 1000
     deep-min-ms: 1000
+  rewind:
+    live-position-fallback-expansion-bonus: 0.03
+  required-rotation:
+    median-threshold-deg: 10.0
+    min-samples: 6
+
+engine:
+  compensation:
+    leniency-budget-cap: 0.08
+  unverified:
+    horizontal-accrual-floor: 0.18
+    max-ticks: 16
+
+setback-blocker:
+  max-pending-ms: 2000
 
 movement-analysis:
   packet-burst-ms: 95

@@ -72,6 +72,7 @@ public final class MovementCheckRunner {
         // Position-less flying packets carry no movement to validate; the 0.03 estimator on the
         // next real position packet accounts for any skipped sub-threshold tick.
         if (!positionIncluded) {
+            observeHoverOnExempt(data, clientGround);
             return publishExempt(data, nowMs, "positionless");
         }
 
@@ -94,6 +95,7 @@ public final class MovementCheckRunner {
         // setback if the unverified streak persists beyond a configurable tick budget.
         if (chunkUnloaded(from, to)) {
             handleUnverifiedTick(player, data, mp, from, to, clientGround, nowMs);
+            observeHoverOnExempt(data, clientGround, to.getY() - from.getY());
             return publishExempt(data, nowMs, "chunk-unverified");
         }
         data.resetEngineUnverifiedTicks();
@@ -454,6 +456,18 @@ public final class MovementCheckRunner {
         EngineResult result = EngineResult.exempt(nowMs, reason);
         data.setLastEngineResult(result);
         return result;
+    }
+
+    /** Record hover window samples even on exempt ticks so hover cannot be reset by positionless gaps. */
+    private void observeHoverOnExempt(PlayerData data, boolean clientGround) {
+        observeHoverOnExempt(data, clientGround, data == null ? 0.0D : data.getLastMoveDy());
+    }
+
+    private void observeHoverOnExempt(PlayerData data, boolean clientGround, double dy) {
+        if (data == null) return;
+        boolean airborne = !clientGround && data.getEngineAirborneTicks() > 0;
+        boolean hoverLike = airborne && Math.abs(dy) < 0.03D;
+        data.recordHoverDySample(hoverLike);
     }
 
     private void noteLegitVerticalMotion(MovementPlayer mp, CompensatedWorld world, PlayerData data, long nowMs) {

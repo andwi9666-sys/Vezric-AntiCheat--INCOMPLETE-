@@ -91,6 +91,22 @@ public abstract class Check {
     public String publicName() { return CheckAliasUtil.displayName(name, category); }
     public String publicCategory() { return CheckAliasUtil.displayCategory(name, category); }
 
+    /** Purge legacy static simulation state on quit to prevent cross-session buffer bleed. */
+    public static void clearPlayer(UUID uuid) {
+        if (uuid == null) return;
+        LAST_SETBACK_MS.remove(uuid);
+        SHARED_KILLAURA_LAST_SUPPRESS_MS.remove(uuid);
+        CLASSIC_SIM_BUFFER.remove(uuid);
+        CLASSIC_SIM_LAST_MS.remove(uuid);
+        CLASSIC_SIM_LAST_SETBACK_MS.remove(uuid);
+        CLASSIC_SIM_LAST_REARM_SUPPRESS_MS.remove(uuid);
+        CLASSIC_SIM_LAST_DEDUPE_SUPPRESS_MS.remove(uuid);
+        CLASSIC_SIM_LAST_FLAG_SUPPRESS_MS.remove(uuid);
+        CLASSIC_SIM_FAMILY_MS.remove(uuid);
+        CLASSIC_SIM_FAMILY_SCORE.remove(uuid);
+        CLASSIC_SIM_FAMILY_DECAY_MS.remove(uuid);
+    }
+
     public static ClassicSimulationSnapshot classicSimulationSnapshot(UUID uuid) {
         return classicSimulationSnapshot(uuid, System.currentTimeMillis(), Long.MAX_VALUE);
     }

@@ -1,6 +1,11 @@
 package com.colin.vezanticheat.combat.math;
 
+import com.colin.vezanticheat.combat.CombatSample;
 import org.bukkit.Location;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Validates that packet yaw/pitch at attack time could geometrically produce the hit
@@ -50,6 +55,46 @@ public final class RequiredRotationUtil {
     public static double snapAngularVelocityThreshold(int pingMs) {
         int ping = Math.max(0, pingMs);
         return 800.0D + Math.min(450.0D, ping * 1.6D);
+    }
+
+    /**
+     * Flags attack-packet aim that is far tighter than the visible pre-attack rotation history
+     * (classic silent aim: correct attack rotation, wrong client-facing aim).
+     */
+    public static double preAttackSnapScore(CombatSample sample, BoundingBox box) {
+        if (sample == null || box == null) {
+            return 0.0D;
+        }
+        Location eye = sample.getAttackerEye();
+        if (eye == null) {
+            return 0.0D;
+        }
+        List<CombatSample.RotationPoint> rotations = sample.getRecentRotations();
+        if (rotations == null || rotations.size() < 4) {
+            return 0.0D;
+        }
+
+        List<Double> preErrors = new ArrayList<Double>();
+        for (CombatSample.RotationPoint point : rotations) {
+            if (point == null) {
+                continue;
+            }
+            Result result = evaluate(eye, point.getYaw(), point.getPitch(), box, sample.getPingEstimate());
+            preErrors.add(result.getCombinedError());
+        }
+        if (preErrors.size() < 3) {
+            return 0.0D;
+        }
+
+        Collections.sort(preErrors);
+        double preMedian = preErrors.get(preErrors.size() / 2);
+        Result attack = evaluate(eye, sample.getAttackerYaw(), sample.getAttackerPitch(),
+                box, sample.getPingEstimate());
+        double gap = preMedian - attack.getCombinedError();
+        if (gap < 10.0D) {
+            return 0.0D;
+        }
+        return Math.min(1.5D, gap / 12.0D);
     }
 
     public static final class Result {

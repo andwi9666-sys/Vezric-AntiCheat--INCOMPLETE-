@@ -15,6 +15,45 @@ public final class GcdLatticeAnalysis {
 
     private GcdLatticeAnalysis() {}
 
+    /** High lattice fit during sustained rotation is suspicious (inverse of residue signal). */
+    public static double latticeConformitySuspicion(Deque<Float> yawDeltas, Deque<Float> pitchDeltas) {
+        List<Float> yaw = AimAssistUtil.tailFloats(yawDeltas, 100);
+        List<Float> pitch = AimAssistUtil.tailFloats(pitchDeltas, 100);
+        if (yaw.size() < 20) {
+            return 0.0D;
+        }
+        float inferredGcd = inferGcd(yaw, pitch);
+        if (inferredGcd <= 0.0F) {
+            return 0.0D;
+        }
+        double fit = latticeFitScore(yaw, inferredGcd) + latticeFitScore(pitch, inferredGcd);
+        double normalized = fit * 0.5D;
+        if (normalized < 0.82D) {
+            return 0.0D;
+        }
+        return Math.min(1.0D, (normalized - 0.82D) / 0.16D);
+    }
+
+    public static double distributedSnapRatio(double[] errors) {
+        if (errors == null || errors.length < 3) {
+            return 0.0D;
+        }
+        double totalWork = 0.0D;
+        double maxStepWork = 0.0D;
+        for (int i = 1; i < errors.length; i++) {
+            double improvement = errors[i - 1] - errors[i];
+            if (improvement > 0.0D) {
+                totalWork += improvement;
+                maxStepWork = Math.max(maxStepWork, improvement);
+            }
+        }
+        if (totalWork < 6.0D) {
+            return 0.0D;
+        }
+        // High when alignment work is spread evenly across ticks (distributed snap), low for single-step snaps.
+        return 1.0D - (maxStepWork / totalWork);
+    }
+
     public static double latticeResidueFraction(Deque<Float> yawDeltas, Deque<Float> pitchDeltas) {
         List<Float> yaw = AimAssistUtil.tailFloats(yawDeltas, 100);
         List<Float> pitch = AimAssistUtil.tailFloats(pitchDeltas, 100);

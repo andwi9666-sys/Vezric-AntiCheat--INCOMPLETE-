@@ -10,15 +10,14 @@ import static org.junit.Assert.assertTrue;
 public class GcdLatticeAnalysisTest {
 
     @Test
-    public void latticeConformingRotationsHaveLowResidue() {
+    public void latticeConformingRotationsRaiseConformitySuspicion() {
         Deque<Float> yaw = new ArrayDeque<Float>();
         Deque<Float> pitch = new ArrayDeque<Float>();
         for (int i = 0; i < 30; i++) {
             yaw.addLast(0.30F);
             pitch.addLast(0.15F);
         }
-        double residue = GcdLatticeAnalysis.latticeResidueFraction(yaw, pitch);
-        assertTrue(residue < 0.2D);
+        assertTrue(GcdLatticeAnalysis.latticeConformitySuspicion(yaw, pitch) > 0.5D);
     }
 
     @Test
@@ -30,7 +29,12 @@ public class GcdLatticeAnalysisTest {
             yaw.addLast(pattern[i % pattern.length]);
             pitch.addLast(pattern[(i + 1) % pattern.length]);
         }
-        double residue = GcdLatticeAnalysis.latticeResidueFraction(yaw, pitch);
-        assertTrue(residue > 0.35D);
+        assertTrue(GcdLatticeAnalysis.latticeResidueFraction(yaw, pitch) > 0.35D);
+    }
+
+    @Test
+    public void distributedSnapDetectsEvenlySpreadAlignment() {
+        double[] errors = new double[] {40.0D, 32.0D, 24.0D, 16.0D, 8.0D};
+        assertTrue(GcdLatticeAnalysis.distributedSnapRatio(errors) >= 0.35D);
     }
 }

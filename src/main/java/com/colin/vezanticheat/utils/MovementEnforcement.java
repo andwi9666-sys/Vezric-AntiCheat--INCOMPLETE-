@@ -96,8 +96,25 @@ public final class MovementEnforcement {
 
         Location target = SetbackUtil.resolveSetbackTarget(plugin, player, data);
         if (target == null || target.getWorld() == null) {
-            // No safe/valid anchor (stale, cross-world, unloaded chunk, or air below). Skip rather
-            // than teleport into an invalid position; emit a diagnostic for tuning.
+            if (data.getPredictionState() != null) {
+                target = data.getPredictionState().getLastKnownGoodLocation();
+            }
+            if ((target == null || target.getWorld() == null) && data.getLastMoveFrom() != null) {
+                target = data.getLastMoveFrom();
+            }
+        }
+        if (target == null || target.getWorld() == null) {
+            Location freeze = data.getLastLoc() != null ? data.getLastLoc() : player.getLocation();
+            if (freeze != null && freeze.getWorld() != null) {
+                sendImmediatePositionPacket(player, freeze);
+                SetbackBlocker.noteServerSetback(data, freeze);
+                blockCurrentMovementPacket(data, reason + " no-valid-anchor-freeze");
+                if (plugin.diagnostics() != null) {
+                    plugin.diagnostics().record(player.getUniqueId(), "MovementEnforcement",
+                            "setback-freeze-no-target", reason);
+                }
+                return false;
+            }
             if (plugin.diagnostics() != null) {
                 plugin.diagnostics().record(player.getUniqueId(), "MovementEnforcement",
                         "setback-skip-no-target", reason);

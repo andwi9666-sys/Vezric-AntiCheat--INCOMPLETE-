@@ -63,7 +63,8 @@ public class CombatAnalyzerKnockbackLeniencyTest {
                 merged.getExpansionTier(),
                 true,
                 analyzer.getConfig());
-        Assert.assertEquals(expected, merged.getFinalScore(), 0.001D);
+        double preAttackSnap = 1.5D * analyzer.getConfig().getKnockbackBehaviorMultiplier();
+        Assert.assertEquals(expected + preAttackSnap, merged.getFinalScore(), 0.001D);
         Assert.assertTrue(merged.getBaseScore() >= merged.getFinalScore());
     }
 

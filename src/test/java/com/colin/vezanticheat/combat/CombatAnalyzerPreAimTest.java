@@ -39,7 +39,7 @@ public class CombatAnalyzerPreAimTest {
         Assert.assertNotNull(result);
         Assert.assertNotNull(result.getPreAimResult());
         Assert.assertEquals(CombatHitClassification.CLEAN, result.getClassification());
-        Assert.assertEquals(4.5D, result.getSuspiciousScore(), 0.001D);
+        Assert.assertEquals(6.0D, result.getSuspiciousScore(), 0.001D);
         Assert.assertNotNull(result.getAccuracySpikeResult());
         Assert.assertTrue(result.getAccuracySpikeResult().isSpikeDetected());
         Assert.assertTrue(result.getReasons().contains("No pre-aim samples near target"));

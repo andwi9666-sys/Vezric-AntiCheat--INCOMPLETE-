@@ -397,7 +397,6 @@ public final class CombatAnalyzer {
             return 0.0D;
         }
 
-        double extraTolerance = sample.isRewoundValid() ? 0.0D : 2.0D;
         BoundingBox box = BoundingBox.fromFeet(targetBase, sample.getTargetWidth(), sample.getTargetHeight());
         RequiredRotationUtil.Result rotation = RequiredRotationUtil.evaluate(
                 eye,
@@ -405,7 +404,8 @@ public final class CombatAnalyzer {
                 sample.getAttackerPitch(),
                 box,
                 sample.getPingEstimate(),
-                extraTolerance);
+                0.0D);
+        double preAttackSnap = RequiredRotationUtil.preAttackSnapScore(sample, box);
 
         PlayerCombatData attackerData = getCombatData(sample.getAttackerUuid());
         if (attackerData != null) {
@@ -413,17 +413,23 @@ public final class CombatAnalyzer {
             attackerData.decaySuspiciousTargetSwitch(sample.getTimestampMs());
         }
 
+        int combinedPing = sample.getPingEstimate() + Math.max(0, sample.getTargetPingEstimate());
+        double invalidRewindPenalty = (!sample.isRewoundValid() && combinedPing >= 100) ? 0.85D : 0.0D;
+
         if (attackerData == null
                 || attackerData.getRequiredRotationSampleCount() < config.getRequiredRotationMinSamples()) {
-            return rotation.exceedsTolerance() ? 0.75D : 0.0D;
+            double single = 0.0D;
+            if (rotation.exceedsTolerance()) single += 0.75D;
+            single += preAttackSnap;
+            return single + invalidRewindPenalty;
         }
 
         double median = attackerData.medianRequiredRotationError();
         double allowance = rotation.getHitboxAngularRadius() + rotation.getPingTolerance();
         if (median <= allowance + config.getRequiredRotationMedianThreshold()) {
-            return 0.0D;
+            return invalidRewindPenalty + preAttackSnap;
         }
-        return Math.min(2.5D, (median - allowance) / 5.0D);
+        return Math.min(2.5D, (median - allowance) / 5.0D) + preAttackSnap + invalidRewindPenalty;
     }
 
     private boolean shouldApplyAttackerKnockbackLeniency(CombatHitResult result, CombatSample sample) {

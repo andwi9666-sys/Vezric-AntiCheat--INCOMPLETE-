@@ -21,7 +21,9 @@ public final class SetbackBlocker {
             return false;
         }
         if (!data.isPendingSetback()) return false;
-        long maxMs = plugin.getConfig().getLong("setback-blocker.max-pending-ms", 2000L);
+        long breakerWindow = plugin.getConfig().getLong("setback-blocker.circuit-breaker.window-ms", 2000L);
+        long maxMs = Math.max(breakerWindow,
+                plugin.getConfig().getLong("setback-blocker.max-pending-ms", breakerWindow));
         if (data.getPendingSetbackSinceMs() > 0L
                 && (System.currentTimeMillis() - data.getPendingSetbackSinceMs()) > maxMs) {
             data.clearPendingSetback();

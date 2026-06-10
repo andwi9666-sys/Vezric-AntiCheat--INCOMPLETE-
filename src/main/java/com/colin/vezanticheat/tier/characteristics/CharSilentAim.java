@@ -102,6 +102,8 @@ public final class CharSilentAim extends TierCheck {
         if (p == null || data == null) return;
 
         long now = System.currentTimeMillis();
+        data.setPeakAngularVelocityDegPerSec(0.0D);
+        data.setKillAuraASnapRatio(0.0D);
         if (!data.wasLastUseEntityAttack()) return;
         if (now - data.getLastUseEntityTime() > plugin.tierCfg().checkLong(name(), "attackFreshnessMs", 150L)) return;
         if (data.isVelocityExempt()) return;
@@ -375,10 +377,12 @@ public final class CharSilentAim extends TierCheck {
         // Compute alignment work per sample (reduction in error)
         double totalWork = 0.0;
         double lastPacketWork = 0.0;
+        double maxStepWork = 0.0;
         for (int i = 1; i < errors.length; i++) {
             double improvement = errors[i - 1] - errors[i];
             if (improvement > 0) {
                 totalWork += improvement;
+                maxStepWork = Math.max(maxStepWork, improvement);
                 if (i == errors.length - 1) lastPacketWork = improvement;
             }
         }
@@ -386,7 +390,13 @@ public final class CharSilentAim extends TierCheck {
         if (totalWork < 3.0) return 0.0;
 
         double ratio = lastPacketWork / totalWork;
+        double distributed = maxStepWork / totalWork;
         double signal = clamp((ratio - 0.5) / 0.3, 0.0, 1.0);
+        if (distributed >= 0.35D && totalWork >= 8.0D) {
+            signal = Math.max(signal, clamp((distributed - 0.28D) / 0.22D, 0.0, 1.0));
+        }
+        signal = Math.max(signal, GcdLatticeAnalysis.distributedSnapRatio(errors) >= 0.38D
+                ? 0.55D : 0.0D);
 
         if (combat.isRecentJump()) signal *= 0.5;
 
@@ -398,9 +408,10 @@ public final class CharSilentAim extends TierCheck {
         if (data == null) return 0.0D;
         Deque<Float> yawDeltas = data.getYawDeltas();
         Deque<Float> pitchDeltas = data.getPitchDeltas();
+        double conformity = GcdLatticeAnalysis.latticeConformitySuspicion(yawDeltas, pitchDeltas);
         double residue = GcdLatticeAnalysis.latticeResidueFraction(yawDeltas, pitchDeltas);
-        if (residue < 0.35D) return 0.0D;
-        return Math.min(1.0D, (residue - 0.35D) / 0.35D);
+        double residueScore = residue >= 0.35D ? Math.min(1.0D, (residue - 0.35D) / 0.35D) : 0.0D;
+        return Math.max(conformity, residueScore);
     }
 
     private double getPostResetBonus(PlayerData data, long now) {

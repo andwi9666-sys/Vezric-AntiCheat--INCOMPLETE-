@@ -60,6 +60,7 @@ public class PlayerListener implements Listener {
         }
         com.colin.vezanticheat.tier.prism.PrismInteractionEvaluator.clearPlayer(e.getPlayer().getUniqueId());
         com.colin.vezanticheat.tier.TierCheck.clearPlayer(e.getPlayer().getUniqueId());
+        com.colin.vezanticheat.checks.Check.clearPlayer(e.getPlayer().getUniqueId());
         if (plugin.riskScore() != null) {
             plugin.riskScore().remove(e.getPlayer().getUniqueId());
         }

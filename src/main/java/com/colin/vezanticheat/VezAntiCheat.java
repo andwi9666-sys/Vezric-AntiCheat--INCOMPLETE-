@@ -402,8 +402,21 @@ public class VezAntiCheat extends JavaPlugin {
         this.vlDecayTaskId = Bukkit.getScheduler().runTaskTimer(this, new Runnable() {
             @Override
             public void run() {
+                if (getConfig().getBoolean("lag.enable-gates", true)) {
+                    double tps = tps() != null ? tps().getTps() : 20.0D;
+                    if (tps < getConfig().getDouble("lag.min-tps", 18.5D)) {
+                        return;
+                    }
+                }
                 long now = System.currentTimeMillis();
+                int maxPing = getConfig().getInt("lag.max-ping", 250);
                 for (org.bukkit.entity.Player player : Bukkit.getOnlinePlayers()) {
+                    if (getConfig().getBoolean("lag.enable-gates", true)) {
+                        int ping = com.colin.vezanticheat.utils.PingUtil.getPing(player);
+                        if (ping > 0 && ping > maxPing) {
+                            continue;
+                        }
+                    }
                     for (com.colin.vezanticheat.tier.TierCheck check : checks) {
                         punisher.tickDecay(player, check, now);
                     }
