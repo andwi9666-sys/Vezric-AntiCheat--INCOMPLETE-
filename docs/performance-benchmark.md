@@ -1,12 +1,15 @@
-# Performance Benchmark
+# Performance Benchmark (Competitive / Aggressive Profile)
 
 Protocol for publishable TPS/CPU numbers at 50 / 100 / 200 players.
 
 ## Setup
 
 1. Same hardware for baseline and VezAntiCheat runs.
-2. Balanced profile: `/vez profile balanced`
-3. Enable perf sampling:
+2. **Aggressive profile** (competitive default):
+   ```
+   /vez profile aggressive
+   ```
+3. Enable perf sampling for benchmark runs only:
 
 ```yaml
 diagnostics:

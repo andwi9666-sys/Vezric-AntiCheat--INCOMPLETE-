@@ -117,6 +117,15 @@ PredictionSpeed:
   engineKnockbackHorizontalMaxOffset: 0.58
   jumpGraceMaxOffset: 0.85
 
+PredictionVehicle:
+  tier: PREDICTION
+  enabled: true
+  punishVl: 150
+  failWeight: 0.35
+  setbackEnabled: false
+  bufferToFlag: 3
+  decay: 0.15
+
 PredictionGroundSpoof:
   tier: PREDICTION
   punishVl: 150

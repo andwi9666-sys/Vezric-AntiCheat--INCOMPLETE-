@@ -1,12 +1,16 @@
-# False-Positive Soak Protocol (1–2 weeks)
+# False-Positive Soak Protocol (7–14 days, competitive)
 
-Run **after** [`staging-results.md`](staging-results.md) balanced scenarios pass.
+Run **after** [`staging-results.md`](staging-results.md) aggressive scenarios 1–8 pass.
 
 ## Setup
 
-1. Deploy `VezAntiCheat-1.1.0.jar` with **balanced** profile (`/vez profile balanced`)
-2. Enable staff alerts: `/flags`, `/vez verbose on` for triage staff
-3. Invite legit PvP players (sprint, W-tap, blockhit, bridging, inventory, eating, bow)
+1. Deploy `VezAntiCheat-1.1.0.jar` with **aggressive** profile:
+   ```
+   /vez profile aggressive
+   ```
+2. Follow shadow → enable workflow in [`competitive-tuning.md`](competitive-tuning.md)
+3. Enable staff alerts: `/flags`, `/vez verbose on` for triage staff
+4. Invite **competitive Pot/HCF PvP** players — sprint-jump, W-tap, blockhit, bridging, inventory, bow, jump-crit chains
 
 ## Track daily
 
@@ -24,6 +28,19 @@ Run **after** [`staging-results.md`](staging-results.md) balanced scenarios pass
 3. `/vez trace <player>` — DiagnosticsTracker entries
 4. If FP: switch check to shadow via `/vez tune <Check> shadow true`
 5. File issue with: ping, TPS, reproduction steps, debug line
+
+## Competitive PvP focus (Pot / HCF / UHC)
+
+Track these high-skill mechanics explicitly:
+
+| Mechanic | Expected |
+|----------|----------|
+| W-tap / S-tap first hits | No combat cancel |
+| Blockhit sprint reset | No reach/silent-aim flag |
+| Jump-crit chains | No fly/hover false flag |
+| Counterstrafe spacing | No movement mismatch FP |
+| 8–14 CPS jitter click | No autoclick flag unless macro-smooth |
+| Boat/minecart travel | No vehicle speed FP at vanilla speeds |
 
 ## Exit gate
 

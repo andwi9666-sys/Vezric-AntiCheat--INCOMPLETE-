@@ -1,6 +1,7 @@
 package com.colin.vezanticheat.utils;
 
 import com.colin.vezanticheat.VezAntiCheat;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -20,6 +21,8 @@ import java.util.Set;
 
 /**
  * Applies bundled lenient/balanced/aggressive profiles from jar resources to the live config.yml.
+ * Profile keys are merged over bundled {@code config.yml} defaults so v1.1 keys (license, vehicle,
+ * exemption-caps) are never dropped when a profile omits them.
  */
 public final class ConfigProfileManager {
 
@@ -54,16 +57,44 @@ public final class ConfigProfileManager {
             Files.copy(configFile.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING);
         }
 
+        FileConfiguration merged = loadBundledDefaults();
+        FileConfiguration profile = loadBundledProfile(normalized);
+        mergeProfileOverrides(merged, profile);
+        merged.save(configFile);
+        return normalized;
+    }
+
+    static void mergeProfileOverrides(FileConfiguration base, FileConfiguration override) {
+        if (base == null || override == null) return;
+        for (String key : override.getKeys(true)) {
+            Object value = override.get(key);
+            if (value instanceof ConfigurationSection) {
+                continue;
+            }
+            base.set(key, value);
+        }
+    }
+
+    private FileConfiguration loadBundledDefaults() throws IOException {
+        InputStream in = plugin.getResource("config.yml");
+        if (in == null) {
+            throw new IOException("Bundled config.yml missing from jar");
+        }
+        FileConfiguration cfg = YamlConfiguration.loadConfiguration(
+                new InputStreamReader(in, StandardCharsets.UTF_8));
+        in.close();
+        return cfg;
+    }
+
+    private FileConfiguration loadBundledProfile(String normalized) throws IOException {
         String resourcePath = "config-profiles/" + normalized + ".yml";
         InputStream in = plugin.getResource(resourcePath);
         if (in == null) {
             throw new IOException("Bundled profile missing: " + resourcePath);
         }
-
-        FileConfiguration bundled = YamlConfiguration.loadConfiguration(
+        FileConfiguration cfg = YamlConfiguration.loadConfiguration(
                 new InputStreamReader(in, StandardCharsets.UTF_8));
         in.close();
-        bundled.save(configFile);
-        return normalized;
+        return cfg;
     }
 }

@@ -1,9 +1,10 @@
-# Staging Results — v1.1.0 Premium Launch
+# Staging Results — v1.1.0 Premium Launch (Competitive)
 
 Record live validation from [`testing-plan.md`](testing-plan.md) §5 on a **1.8.8 Spigot/Paper** test server with **PacketEvents** installed.
 
 **Jar under test:** `target/VezAntiCheat-1.1.0.jar`  
-**Profile:** balanced (repeat lenient + aggressive after balanced passes)  
+**Primary profile:** **aggressive** (`/vez profile aggressive`) — repeat lenient ping sweep + balanced spot-check  
+**Tuning guide:** [`competitive-tuning.md`](competitive-tuning.md)  
 **Tester:** _operator name_  
 **Date range:** _YYYY-MM-DD → YYYY-MM-DD_
 
@@ -23,24 +24,25 @@ Record live validation from [`testing-plan.md`](testing-plan.md) §5 on a **1.8.
 
 | # | Scenario | Profile | Ping | TPS | Result | Check / debug notes |
 |---|----------|---------|------|-----|--------|---------------------|
-| 1 | Speed setback, no re-flag loop | balanced | | | _pending_ | |
-| 2 | Fly/hover windowed detection | balanced | | | _pending_ | |
-| 3 | Phase stale-anchor rejection | balanced | | | _pending_ | |
-| 4 | Blink release / timer debt | balanced | | | _pending_ | |
-| 5 | Rotation-only skips timer | balanced | | | _pending_ | |
-| 6 | Anti-KB punitive setback ordering | balanced | | | _pending_ | |
-| 7 | Silent aim required-rotation median | balanced | | | _pending_ | |
-| 8 | Reach rewound AABB | balanced | | | _pending_ | |
-| 9 | Legit ping sweep 20–180ms | lenient | | | _pending_ | |
-| 10 | Quit buffer purge | balanced | | | _pending_ | |
-| 11 | `/vez reload` buffer flush | balanced | | | _pending_ | |
-| 12 | Inventory-move silent aim signal | balanced | | | _pending_ | |
+| 1 | Speed setback, no re-flag loop | aggressive | | | _pending operator_ | Sprint-jump after setback |
+| 2 | Fly/hover windowed detection | aggressive | | | _pending operator_ | Slab/stair fights |
+| 3 | Phase stale-anchor rejection | aggressive | | | _pending operator_ | |
+| 4 | Blink release / timer debt | aggressive | | | _pending operator_ | |
+| 5 | Rotation-only skips timer | aggressive | | | _pending operator_ | |
+| 6 | Anti-KB punitive setback ordering | aggressive | | | _pending operator_ | `combat-mitigation.punitive-setback` |
+| 7 | Silent aim required-rotation median | aggressive | | | _pending operator_ | &lt; 1.2 block trades |
+| 8 | Reach rewound AABB | aggressive | | | _pending operator_ | 2.8–3.2 block trades |
+| 9 | Legit ping sweep 20–180ms | lenient | | | _pending operator_ | W-tap/blockhit/jump-crit |
+| 10 | Quit buffer purge | aggressive | | | _pending operator_ | |
+| 11 | `/vez reload` buffer flush | aggressive | | | _pending operator_ | |
+| 12 | Inventory-move silent aim signal | aggressive | | | _pending operator_ | |
 
 ## Sign-off
 
-- [ ] 12/12 balanced scenarios **PASS**
-- [ ] Lenient legit ping sweep **PASS**
-- [ ] Aggressive catches cheat bots without mass FP on 1–2 week soak
+- [ ] 12/12 **aggressive** scenarios **PASS**
+- [ ] Lenient legit ping sweep **PASS** (scenario 9)
+- [ ] Aggressive catches cheat bots without mass FP on 7–14 day soak
 - [ ] Zero P0 false positives during soak
+- [ ] [`performance-benchmark.md`](performance-benchmark.md) filled with real numbers
 
 **Approved for premium launch:** _yes / no_ — _signature / date_

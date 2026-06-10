@@ -29,16 +29,20 @@ server/
 ## 4. Choose a profile
 
 ```
-/vez profile balanced
+/vez profile aggressive   # competitive Pot/HCF/UHC (recommended)
+/vez profile balanced     # general PvP
+/vez profile lenient      # high-ping / casual
 ```
 
 | Profile | When to use |
 |---------|-------------|
+| `aggressive` | Competitive Pot/HCF/UHC, low-latency arenas |
+| `balanced` | General PvP networks |
 | `lenient` | 150ms+ ping, casual hubs |
-| `balanced` | Default PvP networks |
-| `aggressive` | Low-latency competitive |
 
-Manual alternative: copy `config-profiles/balanced.yml` from the repo into `plugins/VezAntiCheat/config.yml`, then `/vez reload`.
+Profiles merge over jar defaults — v1.1 keys (`license`, `vehicle`, `exemption-caps`) are never dropped.
+
+Competitive shadow → enable workflow: [competitive-tuning.md](competitive-tuning.md)
 
 ## 5. Staff setup
 
@@ -66,15 +70,32 @@ diagnostics:
 
 Run scenarios in [performance-benchmark.md](performance-benchmark.md), then disable in production.
 
-## 8. License (direct sales)
+## 8. Licensing (marketplace + direct sales)
+
+### Marketplace (Polymart / BuiltByBit)
+
+Ship the standard jar. Leave license disabled — the platform handles keys:
+
+```yaml
+license:
+  enabled: false
+```
+
+### Direct sales
+
+Buyers enable in-plugin validation after purchase:
 
 ```yaml
 license:
   enabled: true
-  key: 'YOUR-KEY-HERE'
+  key: 'YOUR-LICENSE-KEY-HERE'
+  grace-hours: 24
+  validation-url: ''   # optional HTTPS endpoint; offline format check if empty
 ```
 
-Marketplace builds: leave `license.enabled: false`.
+During grace, staff see a warning; checks disable only after grace expires if the key is invalid.
+
+See [DISTRIBUTION.md](DISTRIBUTION.md) for release packaging.
 
 ## 9. Updates
 

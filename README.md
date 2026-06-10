@@ -13,30 +13,33 @@ Polar-tier anticheat for **Minecraft 1.8.8** Spigot/Paper networks. Engine-autho
 1. Drop `VezAntiCheat-1.1.0.jar` into `plugins/`.
 2. Install PacketEvents for your 1.8.8 build.
 3. Start the server once to generate `plugins/VezAntiCheat/config.yml`.
-4. Apply a profile (recommended **balanced**):
+4. Apply a profile:
 
    ```
-   /vez profile balanced
+   /vez profile aggressive    # competitive Pot/HCF/UHC
+   /vez profile balanced      # general PvP networks
+   /vez profile lenient       # high-ping / casual
    ```
 
 5. Verify: `/vez status` — PacketEvents ready, checks enabled, TPS healthy.
 6. Staff: `/flags` for alerts, `/vez verbose on` for triage.
 
-Full steps: [docs/INSTALL.md](docs/INSTALL.md)
+Full steps: [docs/INSTALL.md](docs/INSTALL.md)  
+Competitive tuning: [docs/competitive-tuning.md](docs/competitive-tuning.md)
 
 ## Config profiles
 
 | Profile | Use case |
 |---------|----------|
-| `lenient` | High-ping / casual PvP, fewer setbacks |
-| `balanced` | Default production tuning |
-| `aggressive` | Competitive networks, tighter compensation cap |
+| `aggressive` | **Competitive Pot/HCF/UHC** (recommended for low-latency) |
+| `balanced` | General PvP networks |
+| `lenient` | High-ping / casual hubs |
 
 ```
 /vez profile lenient|balanced|aggressive
 ```
 
-Profiles are bundled in the jar; a timestamped backup of `config.yml` is created on apply.
+Profiles are bundled in the jar and **merged over defaults** (v1.1 keys like license/vehicle are preserved). A timestamped backup of `config.yml` is created on apply.
 
 ## Commands
 
@@ -55,8 +58,10 @@ Profiles are bundled in the jar; a timestamped backup of `config.yml` is created
 ## Support
 
 - Install & tuning: [docs/INSTALL.md](docs/INSTALL.md)
+- Competitive tuning: [docs/competitive-tuning.md](docs/competitive-tuning.md)
 - False positives: [docs/SUPPORT.md](docs/SUPPORT.md)
 - Known limits: [docs/TIER_TUNING.md](docs/TIER_TUNING.md)
+- Marketplace listing: [docs/MARKETPLACE.md](docs/MARKETPLACE.md)
 
 ## License
 

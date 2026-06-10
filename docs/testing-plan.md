@@ -79,28 +79,39 @@ Expected result:
 - Circuit breaker freezes movement after 3 setbacks / 2s instead of granting free movement.
 - Next movement packet after setback does not immediately re-flag from the correction.
 
-## 5. Staging Release Checklist (v1.0.0-hardened)
+## 5. Staging Release Checklist (v1.1.0 — competitive)
 
-Run on a 1.8.8 Spigot test server before production deploy. Mark each row when validated.
+Run on a **1.8.8 Spigot/Paper + PacketEvents** test server before premium launch.
+
+**Setup:**
+```
+/vez profile aggressive
+/vez verbose on
+/flags
+```
+
+Record results in [`staging-results.md`](staging-results.md). Tuning workflow: [`competitive-tuning.md`](competitive-tuning.md).
 
 | # | Scenario | Automated coverage | Staging status |
 |---|----------|-------------------|----------------|
-| 1 | Speed setback, no re-flag loop | `SetbackRateLimiterTest`, `SetbackUtilTest` | _pending operator_ |
-| 2 | Fly/hover windowed detection | `FlyPatternUtilTest`, `PredictionTierSignalsTest` | _pending operator_ |
+| 1 | Speed setback, no re-flag loop (sprint-jump) | `SetbackRateLimiterTest`, `SetbackUtilTest` | _pending operator_ |
+| 2 | Fly/hover windowed detection (slab/stair) | `FlyPatternUtilTest`, `PredictionTierSignalsTest` | _pending operator_ |
 | 3 | Phase stale-anchor rejection | `SetbackUtilTest` | _pending operator_ |
 | 4 | Blink release / timer debt | `PlayerClockTest` | _pending operator_ |
 | 5 | Rotation-only packets skip timer | `PlayerClock` position gate | _pending operator_ |
 | 6 | Anti-KB punitive setback ordering | `MovementEnforcement` code path | _pending operator_ |
-| 7 | Silent aim required-rotation median | `RequiredRotationUtilTest`, `CharSilentAimSignalsTest` | _pending operator_ |
-| 8 | Reach rewound AABB | `CombatHitClassifierTest`, `CombatRewindNullSafetyTest` | _pending operator_ |
-| 9 | Legit ping sweep 20–180ms | `CombatFalsePositiveGuardTest` | _pending operator_ |
+| 7 | Silent aim required-rotation (&lt; 1.2 blocks) | `RequiredRotationUtilTest`, `CharSilentAimSignalsTest` | _pending operator_ |
+| 8 | Reach rewound AABB (2.8–3.2 blocks) | `CombatHitClassifierTest`, `CombatRewindNullSafetyTest` | _pending operator_ |
+| 9 | Legit ping sweep 20–180ms (lenient profile) | `CombatFalsePositiveGuardTest` | _pending operator_ |
 | 10 | Quit buffer purge | `CheckClearPlayerTest`, `SimulationSubCheckClearPlayerTest`, `TierCheckBufferLifecycleTest` | _pending operator_ |
-| 11 | `/vez reload` buffer flush | `TierCheckManager.clearBuffers` + `SimulationSubCheck.clearAll` | _pending operator_ |
+| 11 | `/vez reload` buffer flush | `Check.clearAll` + `TierCheck.clearAll` | _pending operator_ |
 | 12 | Inventory-move silent aim signal | `CharSilentAimSignalsInventoryTest` | _pending operator_ |
 
-**Release gate (CI):** PASSED @ `2f41a2c` — `mvn clean package` green, **339** unit tests, jar at `target/VezAntiCheat-1.0.0.jar`.
+**Release gate (CI):** PASSED @ `d44019c` — `mvn clean package` green, **350** unit tests, jar at `target/VezAntiCheat-1.1.0.jar`.
 
-**Release gate (git):** tag `v1.0.0-hardened` @ `56e880d`. Push when remote is configured:
+**Release gate (live):** 12/12 aggressive + lenient ping sweep + 7–14 day FP soak with P0=0. See [`fp-soak-protocol.md`](fp-soak-protocol.md).
+
+**Release gate (git):** tag `v1.1.0` @ `d44019c`. Push when remote is configured — see [`DISTRIBUTION.md`](DISTRIBUTION.md).
 
 ```bash
 git remote add origin <repository-url>

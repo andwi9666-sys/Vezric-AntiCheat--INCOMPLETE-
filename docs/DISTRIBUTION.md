@@ -53,9 +53,16 @@ updates:
 - Discord / ticket URL: add to README and `docs/SUPPORT.md` when live.
 - FP flow: profile → shadow → `/vez tune` → trace export (see SUPPORT.md).
 
-## Marketplace listing assets (operator)
+## Marketplace listing
 
-- Feature bullets: 4-tier Polar architecture, engine prediction, rewound reach, setback pipeline
-- Screenshots: `/flags` GUI, `/vez status`, setback, profile table
-- Honest limitations from [TIER_TUNING.md](TIER_TUNING.md) v1.1 residual table
-- Staging summary from [staging-results.md](staging-results.md) when signed off
+Full template: [MARKETPLACE.md](MARKETPLACE.md) — feature bullets, screenshots list, comparison table, dual-channel licensing.
+
+## Publish checklist (operator)
+
+- [ ] Git remote configured; `v1.1.0` pushed
+- [ ] GitHub Release with jar + SHA256
+- [ ] Staging 12/12 aggressive documented in [staging-results.md](staging-results.md)
+- [ ] FP soak P0=0 documented
+- [ ] [performance-benchmark.md](performance-benchmark.md) filled with real numbers
+- [ ] Marketplace listing live with screenshots
+- [ ] Direct-sales license endpoint configured (if applicable)

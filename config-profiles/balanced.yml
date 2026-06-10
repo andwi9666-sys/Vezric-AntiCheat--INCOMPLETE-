@@ -69,6 +69,38 @@ engine:
   unverified:
     horizontal-accrual-floor: 0.20
     max-ticks: 20
+  exemption-caps:
+    block-change-max-ticks: 6
+    block-change-window-ms: 2000
+    combat-grace-max-ticks: 8
+    combat-grace-window-ms: 2000
+  vehicle:
+    boat-max-per-tick: 0.65
+    minecart-max-per-tick: 0.50
+    default-max-per-tick: 0.55
+    tolerance: 1.15
+    buffer-to-flag: 4
+
+license:
+  enabled: false
+  key: ''
+  grace-hours: 24
+  validation-url: ''
+
+updates:
+  check-enabled: false
+  manifest-url: ''
+
+diagnostics:
+  perf-sampling-enabled: false
+
+combat-mitigation:
+  enabled: true
+  drop-hits-on-flag: true
+  punitive-setback: true
+  push-blocks: 0.40
+  teleport-exempt-ms: 250
+  min-confidence-for-setback: moderate
 
 setback-blocker:
   max-pending-ms: 2000
