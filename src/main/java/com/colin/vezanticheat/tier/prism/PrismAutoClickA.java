@@ -98,13 +98,17 @@ public final class PrismAutoClickA extends TierCheck {
             return;
         }
 
-        double minTrackedCps = plugin.tierCfg().checkDouble(name(), "minTrackedCps", 9.0);
+        double minTrackedCps = plugin.tierCfg().checkDouble(name(), "minTrackedCps", 7.0);
         double maxTrackedCps = plugin.tierCfg().checkDouble(name(), "maxTrackedCps", 17.5);
         if (s.meanCps < minTrackedCps || s.meanCps > maxTrackedCps) {
             data.setAutoClickAVerbose(Math.max(0, data.getAutoClickAVerbose() - 1));
             decay(p, 0.8);
             return;
         }
+
+        boolean lowCpsHumanizer = s.meanCps >= minTrackedCps && s.meanCps < 9.0D
+                && s.cv <= plugin.tierCfg().checkDouble(name(), "lowCpsMaxCv", 0.06)
+                && s.outlierFreeStreak >= plugin.tierCfg().checkInt(name(), "outlierFreeStreakMin", 10);
 
         boolean suspicious = s.bandWidth <= plugin.tierCfg().checkDouble(name(), "maxBandWidth", 1.15)
                 && s.twoBucketRatio >= plugin.tierCfg().checkDouble(name(), "minTwoBucketRatio", 0.92)
@@ -113,6 +117,7 @@ public final class PrismAutoClickA extends TierCheck {
                 && s.outlierRatio <= plugin.tierCfg().checkDouble(name(), "maxOutlierRatio", 0.08)
                 && combat.isPrecisionSample()
                 && combat.getAttackIntervalStdMs() <= plugin.tierCfg().checkDouble(name(), "maxAttackStdMs", 16.0);
+        suspicious = suspicious || (lowCpsHumanizer && combat.isPrecisionSample());
 
         if (suspicious) {
             int vb = data.getAutoClickAVerbose() + 1;
@@ -210,6 +215,15 @@ public final class PrismAutoClickA extends TierCheck {
         double twoBucketRatio = intervals.isEmpty() ? 0.0 : bestAdjacent / (double) intervals.size();
         double outlierRatio = intervals.isEmpty() ? 0.0 : outliers / (double) intervals.size();
         double bandWidth = Math.max(0.0, maxBucket - minBucket);
+        int outlierFreeStreak = 0;
+        double outlierCpsDelta = plugin.tierCfg().checkDouble(name(), "outlierCpsDelta", 1.10);
+        for (Long dt : intervals) {
+            double cps = 1000.0 / dt.doubleValue();
+            if (Math.abs(cps - meanCps) > outlierCpsDelta) {
+                break;
+            }
+            outlierFreeStreak++;
+        }
 
         return new ClickStats(
                 intervals.size(),
@@ -218,6 +232,7 @@ public final class PrismAutoClickA extends TierCheck {
                 cv,
                 twoBucketRatio,
                 outlierRatio,
+                outlierFreeStreak,
                 minBucket,
                 maxBucket,
                 bandWidth
@@ -251,12 +266,13 @@ public final class PrismAutoClickA extends TierCheck {
         final double cv;
         final double twoBucketRatio;
         final double outlierRatio;
+        final int outlierFreeStreak;
         final double minBucketCps;
         final double maxBucketCps;
         final double bandWidth;
 
         ClickStats(int samples, double meanCps, double stdMs, double cv,
-                   double twoBucketRatio, double outlierRatio,
+                   double twoBucketRatio, double outlierRatio, int outlierFreeStreak,
                    double minBucketCps, double maxBucketCps, double bandWidth) {
             this.samples = samples;
             this.meanCps = meanCps;
@@ -264,13 +280,14 @@ public final class PrismAutoClickA extends TierCheck {
             this.cv = cv;
             this.twoBucketRatio = twoBucketRatio;
             this.outlierRatio = outlierRatio;
+            this.outlierFreeStreak = outlierFreeStreak;
             this.minBucketCps = minBucketCps;
             this.maxBucketCps = maxBucketCps;
             this.bandWidth = bandWidth;
         }
 
         static ClickStats empty() {
-            return new ClickStats(0, 0.0, 999.0, 999.0, 0.0, 1.0, 0.0, 0.0, 99.0);
+            return new ClickStats(0, 0.0, 999.0, 999.0, 0.0, 1.0, 0, 0.0, 0.0, 99.0);
         }
     }
 }

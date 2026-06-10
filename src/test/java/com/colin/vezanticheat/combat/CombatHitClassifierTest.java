@@ -151,6 +151,7 @@ public class CombatHitClassifierTest {
                 .targetUuid(TARGET)
                 .attackerEye(new Location(world, 0.0D, 1.62D, 0.0D))
                 .targetLocation(new Location(world, 3.62D, 0.0D, 0.0D))
+                .rewoundValid(true)
                 .attackerYaw(-83.5F)
                 .attackerPitch(0.0F)
                 .targetWidth(0.6D)

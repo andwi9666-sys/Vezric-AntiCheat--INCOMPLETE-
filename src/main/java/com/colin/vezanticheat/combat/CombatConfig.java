@@ -70,6 +70,9 @@ public final class CombatConfig {
     private double knockbackAimScoreReduction = 0.25D;
     private double knockbackTargetReachBonus = 0.12D;
     private double knockbackTargetExpansionBonus = 0.02D;
+    private double livePositionFallbackExpansionBonus = 0.04D;
+    private double requiredRotationMedianThreshold = 12.0D;
+    private int requiredRotationMinSamples = 8;
     private double maxBuffer = 30.0D;
     private double punishBuffer = 25.0D;
     private double cleanHitBufferDecay = 0.15D;
@@ -154,6 +157,9 @@ public final class CombatConfig {
         this.knockbackAimScoreReduction = other.knockbackAimScoreReduction;
         this.knockbackTargetReachBonus = other.knockbackTargetReachBonus;
         this.knockbackTargetExpansionBonus = other.knockbackTargetExpansionBonus;
+        this.livePositionFallbackExpansionBonus = other.livePositionFallbackExpansionBonus;
+        this.requiredRotationMedianThreshold = other.requiredRotationMedianThreshold;
+        this.requiredRotationMinSamples = other.requiredRotationMinSamples;
         this.maxBuffer = other.maxBuffer;
         this.punishBuffer = other.punishBuffer;
         this.cleanHitBufferDecay = other.cleanHitBufferDecay;
@@ -237,6 +243,13 @@ public final class CombatConfig {
         targetSwitchLargeAngle = config.getDouble(BASE + "target-switch.large-angle", targetSwitchLargeAngle);
         targetSwitchPerfectHitYawError = config.getDouble(
                 BASE + "target-switch.perfect-hit-yaw-error", targetSwitchPerfectHitYawError);
+
+        livePositionFallbackExpansionBonus = config.getDouble(
+                BASE + "rewind.live-position-fallback-expansion-bonus", livePositionFallbackExpansionBonus);
+        requiredRotationMedianThreshold = config.getDouble(
+                BASE + "required-rotation.median-threshold-deg", requiredRotationMedianThreshold);
+        requiredRotationMinSamples = config.getInt(
+                BASE + "required-rotation.min-samples", requiredRotationMinSamples);
 
         knockbackLeniencyWindowMs = config.getLong(BASE + "leniency.recent-knockback-ms", knockbackLeniencyWindowMs);
         knockbackBehaviorMultiplier = config.getDouble(
@@ -660,6 +673,22 @@ public final class CombatConfig {
 
     public void setKnockbackTargetExpansionBonus(double knockbackTargetExpansionBonus) {
         this.knockbackTargetExpansionBonus = knockbackTargetExpansionBonus;
+    }
+
+    public double getLivePositionFallbackExpansionBonus() {
+        return livePositionFallbackExpansionBonus;
+    }
+
+    public void setLivePositionFallbackExpansionBonus(double livePositionFallbackExpansionBonus) {
+        this.livePositionFallbackExpansionBonus = livePositionFallbackExpansionBonus;
+    }
+
+    public double getRequiredRotationMedianThreshold() {
+        return requiredRotationMedianThreshold;
+    }
+
+    public int getRequiredRotationMinSamples() {
+        return requiredRotationMinSamples;
     }
 
     public double getMaxBuffer() {

@@ -148,6 +148,7 @@ public class PlayerData {
     private double killAuraASnapRatio;
     private double partialKbRatio;
     private int inventoryMoveCount;
+    private double peakAngularVelocityDegPerSec;
     private int scaffoldPlaceCount;
     private final Deque<RotationSample> rotationRingBuffer = new ArrayDeque<RotationSample>(20);
 
@@ -823,6 +824,13 @@ public class PlayerData {
     public void setPartialKbRatio(double partialKbRatio) { this.partialKbRatio = partialKbRatio; }
     public int getInventoryMoveCount() { return inventoryMoveCount; }
     public void setInventoryMoveCount(int inventoryMoveCount) { this.inventoryMoveCount = inventoryMoveCount; }
+    public double getPeakAngularVelocityDegPerSec() { return peakAngularVelocityDegPerSec; }
+    public void setPeakAngularVelocityDegPerSec(double peakAngularVelocityDegPerSec) {
+        this.peakAngularVelocityDegPerSec = Math.max(0.0D, peakAngularVelocityDegPerSec);
+    }
+    public Deque<com.colin.vezanticheat.utils.GcdLatticeAnalysis.AngularSample> getAngularVelocitySamples() {
+        return angularVelocitySamples;
+    }
     public int getScaffoldPlaceCount() { return scaffoldPlaceCount; }
     public void incrementScaffoldPlaceCount() { this.scaffoldPlaceCount++; }
     public Deque<RotationSample> getRotationRingBuffer() { return rotationRingBuffer; }
@@ -1086,6 +1094,9 @@ public class PlayerData {
 
     private int engineAirborneTicks;
     private int engineHoverTicks;
+    private final Deque<Boolean> engineHoverDyWindow = new ArrayDeque<Boolean>(12);
+    private final Deque<com.colin.vezanticheat.utils.GcdLatticeAnalysis.AngularSample> angularVelocitySamples =
+            new ArrayDeque<com.colin.vezanticheat.utils.GcdLatticeAnalysis.AngularSample>(16);
     private int engineSpeedOvershootTicks;
     private double lastMoveDy;
     private int engineYPortStreak;
@@ -1112,12 +1123,27 @@ public class PlayerData {
     public int getEngineSpeedOvershootTicks() { return engineSpeedOvershootTicks; }
     public void setEngineAirborneTicks(int engineAirborneTicks) { this.engineAirborneTicks = Math.max(0, engineAirborneTicks); }
     public void setEngineHoverTicks(int engineHoverTicks) { this.engineHoverTicks = Math.max(0, engineHoverTicks); }
+    public Deque<Boolean> getEngineHoverDyWindow() { return engineHoverDyWindow; }
+    public void recordHoverDySample(boolean hoverLike) {
+        engineHoverDyWindow.addLast(hoverLike);
+        while (engineHoverDyWindow.size() > 12) {
+            engineHoverDyWindow.removeFirst();
+        }
+    }
+    public int countHoverDyInWindow() {
+        int count = 0;
+        for (Boolean sample : engineHoverDyWindow) {
+            if (Boolean.TRUE.equals(sample)) count++;
+        }
+        return count;
+    }
     public void setEngineSpeedOvershootTicks(int engineSpeedOvershootTicks) {
         this.engineSpeedOvershootTicks = Math.max(0, engineSpeedOvershootTicks);
     }
     public void resetEngineAirState() {
         engineAirborneTicks = 0;
         engineHoverTicks = 0;
+        engineHoverDyWindow.clear();
         engineSpeedOvershootTicks = 0;
         engineYPortStreak = 0;
         engineMicroRatioStreak = 0;

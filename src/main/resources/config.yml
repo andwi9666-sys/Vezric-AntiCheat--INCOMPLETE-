@@ -205,6 +205,13 @@ combat-analysis:
     large-angle: 45.0
     perfect-hit-yaw-error: 3.0
 
+  rewind:
+    live-position-fallback-expansion-bonus: 0.04
+
+  required-rotation:
+    median-threshold-deg: 12.0
+    min-samples: 8
+
   leniency:
     recent-knockback-ms: 300
     recent-knockback-suspicion-multiplier: 0.75

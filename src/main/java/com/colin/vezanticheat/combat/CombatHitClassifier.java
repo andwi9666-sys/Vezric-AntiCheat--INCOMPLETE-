@@ -43,7 +43,7 @@ public final class CombatHitClassifier {
         }
 
         Location eye = sample.getAttackerEye();
-        Location targetBase = sample.getTargetLocation();
+        Location targetBase = sample.getClassificationTargetLocation();
         if (eye == null || targetBase == null || eye.getWorld() == null || targetBase.getWorld() == null) {
             return null;
         }
@@ -55,6 +55,9 @@ public final class CombatHitClassifier {
         int ping = Math.max(0, sample.getPingEstimate());
         // Low ping gets a smaller allowed expansion bucket, so borderline hits land in expansion tiers sooner.
         double allowedExpansion = config.getAllowedExpansionForPing(ping);
+        if (!sample.isRewoundValid()) {
+            allowedExpansion += config.getLivePositionFallbackExpansionBonus();
+        }
         if (targetKnockbackLeniency) {
             // Target velocity widens reach/expansion tolerance for classification, not attacker aim.
             allowedExpansion += config.getKnockbackTargetExpansionBonus();

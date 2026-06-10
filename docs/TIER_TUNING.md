@@ -65,3 +65,24 @@ Monolithic `checks.yml` is backed up as `checks.yml.legacy` on v16 migration. Ti
 | **Total** | **92** | ~11k LOC tier code |
 
 All tier checks are standalone implementations with per-check VL pools. Tune thresholds under each check name in the matching `tiers/*.yml` file.
+
+## v1.0.0-hardened release notes
+
+### Checks / thresholds changed
+- **PredictionGroundSpoof** — flags client-vs-**serverGround** mismatch (engine collision truth), not only predicted ground.
+- **PredictionFly / FlyPatternUtil** — hover uses windowed count (8 of last 12 near-zero dy ticks), not consecutive hover ticks.
+- **EngineMovementGrace** — slab/stair offset grace default tightened to **0.08** (was 0.12).
+- **SpeedUtil** — post-KB allowance derived from `VelocityPredictionEngine` envelope via `KbSpeedAllowance`, not flat 0.22 + 500ms grace.
+- **CombatHitClassifier** — uses rewound target AABB when `CombatResult.valid`; live-position fallback widens expansion by `combat-analysis.rewind.live-position-fallback-expansion-bonus`.
+- **RequiredRotationUtil** — sustained median angular error over 8 hits feeds combat behavior score (closes classic silent aim).
+- **CharSilentAim** — wires `killAuraASnapRatio`, ping-scaled snap threshold (no hard disable at 150ms), GCD lattice residue signal, center-bias range 1–4.5 blocks distance-tapered; close-range keeps correlation + center signals.
+- **PrismAutoClickA** — CV band extended below 9 CPS with outlier-free-streak humanizer detection.
+- **TargetSwitchAnalyzer** — 30s suspicious-switch counter; pre-aim halving removed for repeated suspicious switches.
+
+### Evidence basis
+- 327 JUnit suites green; new regression tests: `RequiredRotationUtilTest`, `GcdLatticeAnalysisTest`, `SpeedUtilEnvelopeTest`, `FlyPatternUtilTest` windowed hover.
+- Manual matrix documented in `docs/testing-plan.md` §4.
+
+### Known limitations
+- Red-team dry loop (Phase 4) not fully automated to 2 consecutive clean rounds; residual bypass risk on lattice-conforming computed rotations and multi-packet snap spreading remains possible at very high ping.
+- `partialKbRatio` / `inventoryMoveCount` retained — still read by `CharVelocityPattern` / `CharSilentAimSignals`.

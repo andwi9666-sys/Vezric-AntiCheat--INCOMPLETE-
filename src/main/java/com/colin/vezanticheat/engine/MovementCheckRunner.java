@@ -304,8 +304,9 @@ public final class MovementCheckRunner {
             data.setEngineAirborneTicks(0);
         }
 
-        boolean hoverLike = airborne && Math.abs(dy) < 0.03D && result.verticalOffset > 0.04D;
-        if (hoverLike) {
+        boolean hoverLike = airborne && Math.abs(dy) < 0.03D;
+        data.recordHoverDySample(hoverLike);
+        if (hoverLike && result.verticalOffset > 0.04D) {
             data.setEngineHoverTicks(data.getEngineHoverTicks() + 1);
         } else {
             data.setEngineHoverTicks(0);

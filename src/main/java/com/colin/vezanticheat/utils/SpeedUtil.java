@@ -39,7 +39,8 @@ public final class SpeedUtil {
         boolean weirdSurface = isWeirdSurface(to) || isWeirdSurface(from);
         boolean recentJump = p.isSprinting()
                 && now - data.getLastJumpTime() <= plugin.getConfig().getLong("movement-analysis.jump-window-ms", 220L);
-        boolean recentVelocity = data.isVelocityExempt()
+        boolean kbEnvelopeActive = KbSpeedAllowance.isKbEnvelopeActive(plugin, p, data, now);
+        boolean recentVelocity = kbEnvelopeActive || data.isVelocityExempt()
                 || now - data.getLastVelocityTime() <= plugin.getConfig().getLong("movement-analysis.velocity-window-ms", 500L);
         boolean potionExempt = data.isPotionExempt();
         boolean recentExplosion = isRecentExplosion(plugin, data, now);
@@ -106,9 +107,12 @@ public final class SpeedUtil {
         }
 
         if (recentVelocity) {
-            Vector velocity = data.getLastVelocity();
-            double velocityHorizontal = velocity == null ? 0.0D : Math.hypot(velocity.getX(), velocity.getZ());
-            double velocityBonus = Math.min(0.22D, 0.06D + (velocityHorizontal * 0.35D));
+            double velocityBonus = KbSpeedAllowance.horizontalAllowance(plugin, p, data, now);
+            if (velocityBonus <= 0.0D) {
+                Vector velocity = data.getLastVelocity();
+                double velocityHorizontal = velocity == null ? 0.0D : Math.hypot(velocity.getX(), velocity.getZ());
+                velocityBonus = Math.min(0.22D, 0.06D + (velocityHorizontal * 0.35D));
+            }
             groundCap += velocityBonus;
             airCap += velocityBonus * 0.85D;
         }

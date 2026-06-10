@@ -31,9 +31,18 @@ public final class FlyPatternUtil {
     public static boolean isSuspiciousHover(PlayerData data, EngineResult er) {
         if (data == null || er == null) return false;
         Vector actual = er.actual == null ? new Vector() : er.actual;
-        return data.getEngineHoverTicks() >= 3
+        boolean airborne = !er.clientGround && !er.predictedOnGround
+                && !er.inWater && !er.onClimbable && !er.inWeb;
+        return airborne
                 && Math.abs(actual.getY()) < 0.03D
-                && !er.clientGround;
+                && isWindowedHover(data, 8, 12);
+    }
+
+    /** Windowed hover: at least {@code minHits} of the last {@code window} ticks are near-zero dy while airborne. */
+    public static boolean isWindowedHover(PlayerData data, int minHits, int window) {
+        if (data == null || minHits <= 0 || window <= 0) return false;
+        return data.countHoverDyInWindow() >= minHits
+                && data.getEngineHoverDyWindow().size() >= Math.min(window, minHits);
     }
 
     /** Bobbing hover: oscillating Y while airborne (delegates to physics tracker evidence). */

@@ -4,9 +4,11 @@ import com.colin.vezanticheat.VezAntiCheat;
 import com.colin.vezanticheat.tier.CheckTier;
 import com.colin.vezanticheat.tier.TierCheck;
 import com.colin.vezanticheat.data.PlayerData;
+import com.colin.vezanticheat.combat.math.RequiredRotationUtil;
 import com.colin.vezanticheat.utils.AimAssistUtil;
 import com.colin.vezanticheat.utils.CombatContextAnalyzer;
 import com.colin.vezanticheat.utils.CombatUtil;
+import com.colin.vezanticheat.utils.GcdLatticeAnalysis;
 import com.colin.vezanticheat.utils.PingUtil;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
@@ -151,25 +153,24 @@ public final class CharSilentAim extends TierCheck {
         }
 
         double dist = ctx.getCompensatedDistance();
-        if (dist < plugin.tierCfg().checkDouble(name(), "closeRangeBypass", 1.5)) {
-            decay(p, 0.30);
-            return;
-        }
+        boolean closeRange = dist < plugin.tierCfg().checkDouble(name(), "closeRangeBypass", 1.5);
 
         Location compensated = ctx.getCompensatedLocation();
         double width = ctx.getWidth();
         double height = ctx.getHeight();
 
-        // --- Signal 1: Angular error ---
-        double s1 = computeAngularErrorSignal(eye, compensated, width, height, combat);
+        // --- Signal 1: Angular error (unreliable at point-blank) ---
+        double s1 = closeRange ? 0.0 : computeAngularErrorSignal(eye, compensated, width, height, combat);
 
         // --- Performance short-circuit: if player IS facing target, skip expensive signals ---
         double s2 = 0.0, s4 = 0.0, s6 = 0.0;
-        if (s1 > 0.0) {
+        if (!closeRange && s1 > 0.0) {
             s2 = computePreAttackSnapSignal(p, data, eye, target, compensated, width, height, ping, combat);
             s4 = computeMovementMismatchSignal(p, data, target, dist, now);
-            s6 = computeAttackTickCorrelationSignal(data, now);
         }
+        s6 = computeAttackTickCorrelationSignal(data, now);
+
+        double s7 = computeGcdLatticeSignal(data);
 
         // --- Signal 3: Post-reset bonus (always compute, accumulates over time) ---
         double s3 = getPostResetBonus(data, now);
@@ -178,10 +179,10 @@ public final class CharSilentAim extends TierCheck {
         double s5 = computeCenterBiasSignal(data, eye, compensated, width, height, dist);
 
         // --- Combine signals ---
-        double weightedSum = s1 * 1.5 + s2 * 2.0 + s3 * 1.5 + s4 * 1.0 + s5 * 0.8 + s6 * 1.5;
-        double combinedScore = weightedSum / TOTAL_WEIGHT;
+        double weightedSum = s1 * 1.5 + s2 * 2.0 + s3 * 1.5 + s4 * 1.0 + s5 * 0.8 + s6 * 1.5 + s7 * 1.0;
+        double combinedScore = weightedSum / (TOTAL_WEIGHT + 1.0);
 
-        int activeSignals = countAbove(0.3, s1, s2, s3, s4, s5, s6);
+        int activeSignals = countAbove(0.3, s1, s2, s3, s4, s5, s6, s7);
         if (activeSignals >= 4) combinedScore *= 1.5;
         else if (activeSignals >= 3) combinedScore *= 1.3;
 
@@ -232,6 +233,7 @@ public final class CharSilentAim extends TierCheck {
             fail(p, data, plugin.tierCfg().checkDouble(name(), "vl", 1.5),
                     "score=" + r(combinedScore) + " s1=" + r(s1) + " s2=" + r(s2)
                             + " s3=" + r(s3) + " s4=" + r(s4) + " s5=" + r(s5) + " s6=" + r(s6)
+                            + " s7=" + r(s7)
                             + " active=" + activeSignals + " buf=" + buf
                             + " dist=" + r(dist) + " " + combat.debugSummary());
             data.setKillAuraASwitchBuffer(0);
@@ -248,9 +250,16 @@ public final class CharSilentAim extends TierCheck {
     @Override
     public void onRotation(Player p, PlayerData data, float yaw, float pitch) {
         if (p == null || data == null) return;
-        if (!data.isKillAuraAPostResetActive()) return;
 
         long now = System.currentTimeMillis();
+        GcdLatticeAnalysis.pushAngularSample(data.getAngularVelocitySamples(), yaw, pitch, now, 16);
+        double peak = GcdLatticeAnalysis.peakAngularVelocityDegPerSec(data.getAngularVelocitySamples(), 50L);
+        if (peak > data.getPeakAngularVelocityDegPerSec()) {
+            data.setPeakAngularVelocityDegPerSec(peak);
+        }
+
+        if (!data.isKillAuraAPostResetActive()) return;
+
         long elapsed = now - data.getKillAuraAPostResetStartMs();
         long windowMs = plugin.tierCfg().checkLong(name(), "postResetWindowMs", 150L);
 
@@ -328,8 +337,12 @@ public final class CharSilentAim extends TierCheck {
     private double computePreAttackSnapSignal(Player p, PlayerData data, Location eye, Entity target,
                                               Location compensated, double width, double height,
                                               int ping, CombatContextAnalyzer.CombatContext combat) {
-        if (ping > 150) return 0.0;
         long now = System.currentTimeMillis();
+        double snapThreshold = RequiredRotationUtil.snapAngularVelocityThreshold(ping);
+        if (data.getPeakAngularVelocityDegPerSec() >= snapThreshold) {
+            double snapSignal = Math.min(1.0D, (data.getPeakAngularVelocityDegPerSec() - snapThreshold) / 400.0D);
+            data.setKillAuraASnapRatio(Math.max(data.getKillAuraASnapRatio(), snapSignal));
+        }
         if (CombatContextAnalyzer.isLikelySpacingMovement(plugin, data, p, now)
                 || CombatContextAnalyzer.isLikelyCounterstrafeSpacing(plugin, data, now)) {
             return 0.0;
@@ -377,7 +390,17 @@ public final class CharSilentAim extends TierCheck {
 
         if (combat.isRecentJump()) signal *= 0.5;
 
+        data.setKillAuraASnapRatio(Math.max(data.getKillAuraASnapRatio(), ratio));
         return signal;
+    }
+
+    private double computeGcdLatticeSignal(PlayerData data) {
+        if (data == null) return 0.0D;
+        Deque<Float> yawDeltas = data.getYawDeltas();
+        Deque<Float> pitchDeltas = data.getPitchDeltas();
+        double residue = GcdLatticeAnalysis.latticeResidueFraction(yawDeltas, pitchDeltas);
+        if (residue < 0.35D) return 0.0D;
+        return Math.min(1.0D, (residue - 0.35D) / 0.35D);
     }
 
     private double getPostResetBonus(PlayerData data, long now) {
@@ -447,7 +470,9 @@ public final class CharSilentAim extends TierCheck {
 
     private double computeCenterBiasSignal(PlayerData data, Location eye, Location compensated,
                                            double width, double height, double dist) {
-        if (dist < 1.0 || dist > 3.0) return 0.0;
+        double maxRange = plugin.tierCfg().checkDouble(name(), "centerBiasMaxRange", 4.5D);
+        if (dist < 1.0 || dist > maxRange) return 0.0;
+        double rangeWeight = dist <= 1.5D ? 1.0D : Math.max(0.35D, 1.0D - ((dist - 1.5D) / (maxRange - 1.5D)) * 0.65D);
 
         // Center angle: angle to exact center of hitbox
         Location center = compensated.clone().add(0, height / 2.0, 0);
@@ -466,7 +491,7 @@ public final class CharSilentAim extends TierCheck {
         avg /= errors.size();
 
         if (avg > 1.5) return 0.0;
-        return clamp((1.5 - avg) / 1.0, 0.0, 1.0);
+        return clamp((1.5 - avg) / 1.0, 0.0, 1.0) * rangeWeight;
     }
 
     private double computeAttackTickCorrelationSignal(PlayerData data, long now) {

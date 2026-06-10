@@ -67,7 +67,7 @@ public final class TargetSwitchAnalyzer {
         }
 
         Location eye = sample.getAttackerEye();
-        Location targetBase = sample.getTargetLocation();
+        Location targetBase = sample.getClassificationTargetLocation();
         if (eye == null || targetBase == null) {
             return TargetSwitchResult.EMPTY;
         }
@@ -103,8 +103,19 @@ public final class TargetSwitchAnalyzer {
             reasons.add("Instant target switch: large angle with perfect hit");
         }
 
-        // Pre-aim toward the new target halves suspicion: player may have been legitimately aiming.
-        if (preAim.hadPreAim() && score > 0.0D) {
+        boolean suspiciousSwitch = score > 0.0D;
+        if (suspiciousSwitch) {
+            combatData.recordSuspiciousTargetSwitch(sample.getTimestampMs());
+            int switchCount = combatData.getSuspiciousTargetSwitchCount();
+            reasons.add("suspiciousSwitchCount=" + switchCount);
+            if (switchCount >= 3) {
+                score *= 1.25D;
+                reasons.add("Repeated suspicious target switches in 30s window");
+            }
+        }
+
+        // Pre-aim toward the new target halves suspicion only when the switch is not already suspicious.
+        if (preAim.hadPreAim() && score > 0.0D && combatData.getSuspiciousTargetSwitchCount() < 2) {
             score *= 0.5D;
             reasons.add("Pre-aim toward new target reduces switch suspicion");
         }

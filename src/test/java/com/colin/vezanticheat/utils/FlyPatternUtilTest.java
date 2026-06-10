@@ -32,6 +32,29 @@ public class FlyPatternUtilTest {
     }
 
     @Test
+    public void windowedHoverRequiresEightOfTwelveNearZeroDyTicks() {
+        PlayerData data = new PlayerData(UUID.randomUUID());
+        EngineResult hover = EngineResult.builder()
+                .checked(true)
+                .actual(new Vector(0.0D, 0.01D, 0.0D))
+                .clientGround(false)
+                .predictedOnGround(false)
+                .verticalOffset(0.05D)
+                .build();
+
+        for (int i = 0; i < 7; i++) {
+            data.recordHoverDySample(true);
+        }
+        assertFalse(FlyPatternUtil.isWindowedHover(data, 8, 12));
+
+        for (int i = 0; i < 5; i++) {
+            data.recordHoverDySample(true);
+        }
+        assertTrue(FlyPatternUtil.isWindowedHover(data, 8, 12));
+        assertTrue(FlyPatternUtil.isSuspiciousHover(data, hover));
+    }
+
+    @Test
     public void glideBandObservesSlowDescent() {
         PlayerData data = new PlayerData(UUID.randomUUID());
         data.setEngineAirborneTicks(10);

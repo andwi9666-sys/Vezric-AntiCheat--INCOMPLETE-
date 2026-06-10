@@ -34,6 +34,9 @@ public final class PlayerCombatData {
     private long lastVelocityTimestamp;
     private long lastDamageTimestamp;
     private long lastKnockbackTimestamp;
+    private int suspiciousTargetSwitchCount;
+    private long suspiciousTargetSwitchWindowStartMs;
+    private final Deque<Double> requiredRotationErrors = new ArrayDeque<Double>();
 
     public PlayerCombatData(UUID uuid) {
         this.uuid = uuid;
@@ -172,6 +175,54 @@ public final class PlayerCombatData {
 
     public List<AttackSample> getRecentAttacks(int amount) {
         return tailCopy(recentAttacks, amount);
+    }
+
+    public void recordRequiredRotationError(double combinedError, long nowMs) {
+        if (combinedError <= 0.0D) {
+            return;
+        }
+        requiredRotationErrors.addLast(combinedError);
+        while (requiredRotationErrors.size() > 12) {
+            requiredRotationErrors.removeFirst();
+        }
+    }
+
+    public double medianRequiredRotationError() {
+        if (requiredRotationErrors.isEmpty()) {
+            return 0.0D;
+        }
+        List<Double> sorted = new ArrayList<Double>(requiredRotationErrors);
+        java.util.Collections.sort(sorted);
+        int mid = sorted.size() / 2;
+        if (sorted.size() % 2 == 1) {
+            return sorted.get(mid);
+        }
+        return (sorted.get(mid - 1) + sorted.get(mid)) * 0.5D;
+    }
+
+    public int getRequiredRotationSampleCount() {
+        return requiredRotationErrors.size();
+    }
+
+    public void recordSuspiciousTargetSwitch(long nowMs) {
+        if (suspiciousTargetSwitchWindowStartMs <= 0L
+                || (nowMs - suspiciousTargetSwitchWindowStartMs) > 30_000L) {
+            suspiciousTargetSwitchCount = 0;
+            suspiciousTargetSwitchWindowStartMs = nowMs;
+        }
+        suspiciousTargetSwitchCount++;
+    }
+
+    public int getSuspiciousTargetSwitchCount() {
+        return suspiciousTargetSwitchCount;
+    }
+
+    public void decaySuspiciousTargetSwitch(long nowMs) {
+        if (suspiciousTargetSwitchWindowStartMs > 0L
+                && (nowMs - suspiciousTargetSwitchWindowStartMs) > 30_000L) {
+            suspiciousTargetSwitchCount = 0;
+            suspiciousTargetSwitchWindowStartMs = 0L;
+        }
     }
 
     private static <T> List<T> tailCopy(Deque<T> deque, int amount) {

@@ -25,6 +25,8 @@ public final class CombatSample {
     private final Location attackerLocation;
     private final Location attackerEye;
     private final Location targetLocation;
+    private final Location rewoundTargetLocation;
+    private final boolean rewoundValid;
     private final float attackerYaw;
     private final float attackerPitch;
     private final double targetWidth;
@@ -45,6 +47,8 @@ public final class CombatSample {
         this.attackerLocation = cloneLocation(builder.attackerLocation);
         this.attackerEye = cloneLocation(builder.attackerEye);
         this.targetLocation = cloneLocation(builder.targetLocation);
+        this.rewoundTargetLocation = cloneLocation(builder.rewoundTargetLocation);
+        this.rewoundValid = builder.rewoundValid;
         this.attackerYaw = builder.attackerYaw;
         this.attackerPitch = builder.attackerPitch;
         this.targetWidth = builder.targetWidth;
@@ -88,6 +92,22 @@ public final class CombatSample {
     }
 
     public Location getTargetLocation() {
+        return cloneLocation(targetLocation);
+    }
+
+    public Location getRewoundTargetLocation() {
+        return cloneLocation(rewoundTargetLocation);
+    }
+
+    public boolean isRewoundValid() {
+        return rewoundValid;
+    }
+
+    /** Preferred classification anchor: rewound AABB feet when valid, else live fallback. */
+    public Location getClassificationTargetLocation() {
+        if (rewoundValid && rewoundTargetLocation != null) {
+            return cloneLocation(rewoundTargetLocation);
+        }
         return cloneLocation(targetLocation);
     }
 
@@ -204,6 +224,8 @@ public final class CombatSample {
         private Location attackerLocation;
         private Location attackerEye;
         private Location targetLocation;
+        private Location rewoundTargetLocation;
+        private boolean rewoundValid;
         private float attackerYaw;
         private float attackerPitch;
         private double targetWidth = 0.6D;
@@ -254,6 +276,16 @@ public final class CombatSample {
 
         public Builder targetLocation(Location targetLocation) {
             this.targetLocation = targetLocation;
+            return this;
+        }
+
+        public Builder rewoundTargetLocation(Location rewoundTargetLocation) {
+            this.rewoundTargetLocation = rewoundTargetLocation;
+            return this;
+        }
+
+        public Builder rewoundValid(boolean rewoundValid) {
+            this.rewoundValid = rewoundValid;
             return this;
         }
 
@@ -383,7 +415,18 @@ public final class CombatSample {
         eye.setPitch(pitch);
 
         Location targetLoc = target.getLocation();
-        double attackDistance = CombatUtil.distanceToHitbox(eye, target);
+        Location rewoundLoc = null;
+        boolean rewoundValid = false;
+        if (attackerData != null) {
+            com.colin.vezanticheat.engine.CombatResult combatResult = attackerData.getLastCombatResult();
+            if (combatResult != null && combatResult.isValid() && combatResult.getChosenLocation() != null) {
+                rewoundLoc = combatResult.getChosenLocation();
+                rewoundValid = true;
+            }
+        }
+        double attackDistance = rewoundValid && rewoundLoc != null
+                ? CombatUtil.distanceToHitbox(eye, rewoundLoc, 0.6D, 1.8D)
+                : CombatUtil.distanceToHitbox(eye, target);
         int targetPing = Math.max(0, PingUtil.getPing(target));
         Builder sampleBuilder = builder()
                 .attacker(attacker)
@@ -391,6 +434,8 @@ public final class CombatSample {
                 .attackerLocation(attackerLoc)
                 .attackerEye(eye)
                 .targetLocation(targetLoc)
+                .rewoundTargetLocation(rewoundLoc)
+                .rewoundValid(rewoundValid)
                 .attackerYaw(yaw)
                 .attackerPitch(pitch)
                 .targetWidth(0.6D)

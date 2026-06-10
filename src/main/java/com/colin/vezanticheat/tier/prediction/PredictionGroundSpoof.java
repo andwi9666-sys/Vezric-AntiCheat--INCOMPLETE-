@@ -47,19 +47,22 @@ public final class PredictionGroundSpoof extends AbstractMovementTierCheck {
                     plugin.getConfig().getDouble("nofall.ground-spoof.min-descent-dy", -0.04D));
             double dy = er.actual == null ? 0.0D : er.actual.getY();
 
+            boolean serverGround = data.isServerGround();
             boolean mismatch = er.clientGround && !er.predictedOnGround && Math.abs(dy) > minDy;
+            boolean serverMismatch = er.clientGround && !serverGround && Math.abs(dy) > minDy * 0.5D;
             boolean descentSpoof = er.clientGround && dy < -minDy;
             NoFallUtil.Context ctx = NoFallUtil.analyze(plugin, p, data);
             boolean airBelow = GroundSpoofTracker.isAirBelowGroundClaim(ctx);
 
-            if (!mismatch && !descentSpoof && !airBelow) {
+            if (!mismatch && !serverMismatch && !descentSpoof && !airBelow) {
                 cool(p, 0.3D);
                 return;
             }
 
-            int gain = airBelow ? 2 : 1;
+            int gain = airBelow || serverMismatch ? 2 : 1;
             flagBuffered(p, data, gain,
                     "clientGround=true predictedGround=" + er.predictedOnGround
+                            + " serverGround=" + serverGround
                             + " dy=" + r(dy) + " airBelow=" + (airBelow ? 1 : 0) + " " + er.debug);
             return;
         }

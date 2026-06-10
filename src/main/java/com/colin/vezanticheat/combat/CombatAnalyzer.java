@@ -6,6 +6,8 @@ import com.colin.vezanticheat.combat.check.AimCorrelationAnalyzer;
 import com.colin.vezanticheat.combat.check.AimCorrelationResult;
 import com.colin.vezanticheat.combat.check.TargetSwitchAnalyzer;
 import com.colin.vezanticheat.combat.check.TargetSwitchResult;
+import com.colin.vezanticheat.combat.math.BoundingBox;
+import com.colin.vezanticheat.combat.math.RequiredRotationUtil;
 import com.colin.vezanticheat.VezAntiCheat;
 import com.colin.vezanticheat.data.PlayerCombatData;
 import org.bukkit.Location;
@@ -347,6 +349,9 @@ public final class CombatAnalyzer {
                 merged.getAccuracySpikeResult(),
                 merged.getAimCorrelationResult(),
                 merged.getTargetSwitchResult());
+        if (classification != CombatHitClassification.IMPOSSIBLE) {
+            behaviorScore += evaluateRequiredRotationBehavior(sample);
+        }
 
         // Recent KB/damage explains erratic aim: reduce behavior scores only, not geometry; IMPOSSIBLE unchanged.
         double reducedBehavior = behaviorScore;
@@ -380,6 +385,45 @@ public final class CombatAnalyzer {
 
     private static double roundMultiplier(double value) {
         return Math.round(value * 1000.0D) / 1000.0D;
+    }
+
+    private double evaluateRequiredRotationBehavior(CombatSample sample) {
+        if (sample == null) {
+            return 0.0D;
+        }
+        Location eye = sample.getAttackerEye();
+        Location targetBase = sample.getClassificationTargetLocation();
+        if (eye == null || targetBase == null) {
+            return 0.0D;
+        }
+
+        double extraTolerance = sample.isRewoundValid() ? 0.0D : 2.0D;
+        BoundingBox box = BoundingBox.fromFeet(targetBase, sample.getTargetWidth(), sample.getTargetHeight());
+        RequiredRotationUtil.Result rotation = RequiredRotationUtil.evaluate(
+                eye,
+                sample.getAttackerYaw(),
+                sample.getAttackerPitch(),
+                box,
+                sample.getPingEstimate(),
+                extraTolerance);
+
+        PlayerCombatData attackerData = getCombatData(sample.getAttackerUuid());
+        if (attackerData != null) {
+            attackerData.recordRequiredRotationError(rotation.getCombinedError(), sample.getTimestampMs());
+            attackerData.decaySuspiciousTargetSwitch(sample.getTimestampMs());
+        }
+
+        if (attackerData == null
+                || attackerData.getRequiredRotationSampleCount() < config.getRequiredRotationMinSamples()) {
+            return rotation.exceedsTolerance() ? 0.75D : 0.0D;
+        }
+
+        double median = attackerData.medianRequiredRotationError();
+        double allowance = rotation.getHitboxAngularRadius() + rotation.getPingTolerance();
+        if (median <= allowance + config.getRequiredRotationMedianThreshold()) {
+            return 0.0D;
+        }
+        return Math.min(2.5D, (median - allowance) / 5.0D);
     }
 
     private boolean shouldApplyAttackerKnockbackLeniency(CombatHitResult result, CombatSample sample) {

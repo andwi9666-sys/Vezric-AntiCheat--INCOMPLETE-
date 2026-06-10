@@ -60,6 +60,25 @@ Expected result:
 - Debug output should show why the sample was discounted.
 - Noise should not create standalone punishable evidence.
 
+## 4. Manual Setback Validation
+
+Run on a live test server after each hardening pass:
+
+1. Speed violation in open ground — setback lands on last validated position, no immediate re-flag loop.
+2. Fly/hover violation in open ground — windowed hover triggers setback without rubber-banding the correction itself.
+3. Phase violation through a wall — setback rejects stale/cross-world/chunk-unloaded anchors.
+4. Blink release after packet choke — player resumes without timer debt false-flag from the release burst.
+5. Timer violation during a clean fight — only position packets contribute drift; rotation-only packets do not inflate debt.
+6. Anti-KB after normal, sprint, jump-reset, wall, and ceiling hits — punitive setback uses teleport exemption before packet send.
+7. Silent-aim bot at 3–4 blocks — required-rotation median rises over 8 hits; CharSilentAim snap ratio reader fires.
+8. Reach bot with rewound positions — classifier uses compensated AABB, not live Bukkit location.
+9. Legit sprint/W-tap/blockhit/bridging at 20/50/120/180ms ping — no false setback or combat cancel.
+
+Expected result:
+- Setback executes with teleport exemption **before** position packet send.
+- Circuit breaker freezes movement after 3 setbacks / 2s instead of granting free movement.
+- Next movement packet after setback does not immediately re-flag from the correction.
+
 ## Debug Review
 
 For every intentional flag candidate, verify debug includes:
