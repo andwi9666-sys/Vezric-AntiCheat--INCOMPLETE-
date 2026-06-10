@@ -100,7 +100,7 @@ Run on a 1.8.8 Spigot test server before production deploy. Mark each row when v
 
 **Release gate (CI):** PASSED @ `2f41a2c` — `mvn clean package` green, **339** unit tests, jar at `target/VezAntiCheat-1.0.0.jar`.
 
-**Release gate (git):** tag `v1.0.0-hardened` @ `2f41a2c`. Push when remote is configured:
+**Release gate (git):** tag `v1.0.0-hardened` @ `56e880d`. Push when remote is configured:
 
 ```bash
 git remote add origin <repository-url>

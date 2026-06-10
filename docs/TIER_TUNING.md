@@ -139,4 +139,4 @@ Hunter matrix (manual live validation still recommended on staging):
 | RT2-004 | Re-tune close-range `CharSilentAim` signal weights if silent-aim bot evades at &lt; 1.2 blocks |
 | RT5-002 | Add vehicle-mounted movement sub-check if vehicle-speed bypass reproduced |
 
-Release tag **`v1.0.0-hardened`** @ commit `2f41a2c` (gap-closure: simulation purge, inventory signal, lenient slab grace).
+Release tag **`v1.0.0-hardened`** @ commit `56e880d` (gap-closure + release gate docs).
