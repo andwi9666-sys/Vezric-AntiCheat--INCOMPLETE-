@@ -72,6 +72,24 @@ public class UncertaintyBudgetTest {
     }
 
     @Test
+    public void couldSkipTickAndBlockChangeDoNotFullyStack() {
+        fresh();
+        u.leniencyBudgetCap = 0.12D;
+        mp.couldSkipTick = true;
+        u.blockChangeTicks = 1;
+        double reduced = u.reduceOffset(1.0D);
+        Assert.assertEquals(1.0D - 0.08D, reduced, 1.0E-9D);
+    }
+
+    @Test
+    public void couldSkipTickUncertaintyNotDoubleCounted() {
+        fresh();
+        mp.couldSkipTick = true;
+        u.blockChangeTicks = 1;
+        Assert.assertTrue(u.getHorizontalUncertainty() < 0.10D);
+    }
+
+    @Test
     public void teleportLenienceExemptFromCap() {
         // A fresh teleport applies an extra 0.20 OUTSIDE the cap.
         fresh();

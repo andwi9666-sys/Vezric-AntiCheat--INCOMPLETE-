@@ -13,6 +13,18 @@ public final class CharSilentAimSignals {
 
     private CharSilentAimSignals() {}
 
+    /** RT2-004: boost correlation/center/required-rotation weights below taper distance. */
+    public static double closeRangeSignalScale(double dist, double taperBlocks, double boost) {
+        if (taperBlocks <= 0.0D || dist >= taperBlocks) return 1.0D;
+        double t = Math.max(0.0D, dist / taperBlocks);
+        return 1.0D + (boost - 1.0D) * (1.0D - t);
+    }
+
+    public static double requiredRotationScore(double excessBeyondAllowanceDeg) {
+        if (excessBeyondAllowanceDeg <= 0.0D) return 0.0D;
+        return Math.min(1.0D, excessBeyondAllowanceDeg / 18.0D);
+    }
+
     public static double score(VezAntiCheat plugin, Player p, PlayerData data, long now) {
         double s1 = angularScore(p, data);
         double s2 = snapScore(data);

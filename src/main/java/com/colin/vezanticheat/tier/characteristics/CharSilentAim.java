@@ -4,6 +4,7 @@ import com.colin.vezanticheat.VezAntiCheat;
 import com.colin.vezanticheat.tier.CheckTier;
 import com.colin.vezanticheat.tier.TierCheck;
 import com.colin.vezanticheat.data.PlayerData;
+import com.colin.vezanticheat.combat.math.BoundingBox;
 import com.colin.vezanticheat.combat.math.RequiredRotationUtil;
 import com.colin.vezanticheat.utils.AimAssistUtil;
 import com.colin.vezanticheat.utils.CombatContextAnalyzer;
@@ -155,7 +156,11 @@ public final class CharSilentAim extends TierCheck {
         }
 
         double dist = ctx.getCompensatedDistance();
-        boolean closeRange = dist < plugin.tierCfg().checkDouble(name(), "closeRangeBypass", 1.5);
+        double closeBypass = plugin.tierCfg().checkDouble(name(), "closeRangeBypass", 1.5);
+        double closeTaper = plugin.tierCfg().checkDouble(name(), "closeRangeTaper", 1.2);
+        double closeBoost = plugin.tierCfg().checkDouble(name(), "closeRangeSignalBoost", 1.35);
+        boolean closeRange = dist < closeBypass;
+        double closeScale = CharSilentAimSignals.closeRangeSignalScale(dist, closeTaper, closeBoost);
 
         Location compensated = ctx.getCompensatedLocation();
         double width = ctx.getWidth();
@@ -173,6 +178,7 @@ public final class CharSilentAim extends TierCheck {
         s6 = computeAttackTickCorrelationSignal(data, now);
 
         double s7 = computeGcdLatticeSignal(data);
+        double s8 = computeRequiredRotationSignal(eye, compensated, width, height, dist, ping, data);
 
         // --- Signal 3: Post-reset bonus (always compute, accumulates over time) ---
         double s3 = getPostResetBonus(data, now);
@@ -181,10 +187,11 @@ public final class CharSilentAim extends TierCheck {
         double s5 = computeCenterBiasSignal(data, eye, compensated, width, height, dist);
 
         // --- Combine signals ---
-        double weightedSum = s1 * 1.5 + s2 * 2.0 + s3 * 1.5 + s4 * 1.0 + s5 * 0.8 + s6 * 1.5 + s7 * 1.0;
-        double combinedScore = weightedSum / (TOTAL_WEIGHT + 1.0);
+        double weightedSum = s1 * 1.5 + s2 * 2.0 + s3 * 1.5 + s4 * 1.0
+                + s5 * 0.8 * closeScale + s6 * 1.5 * closeScale + s7 * 1.0 * closeScale + s8 * 1.5 * closeScale;
+        double combinedScore = weightedSum / (TOTAL_WEIGHT + 2.5);
 
-        int activeSignals = countAbove(0.3, s1, s2, s3, s4, s5, s6, s7);
+        int activeSignals = countAbove(0.3, s1, s2, s3, s4, s5, s6, s7, s8);
         if (activeSignals >= 4) combinedScore *= 1.5;
         else if (activeSignals >= 3) combinedScore *= 1.3;
 
@@ -235,7 +242,7 @@ public final class CharSilentAim extends TierCheck {
             fail(p, data, plugin.tierCfg().checkDouble(name(), "vl", 1.5),
                     "score=" + r(combinedScore) + " s1=" + r(s1) + " s2=" + r(s2)
                             + " s3=" + r(s3) + " s4=" + r(s4) + " s5=" + r(s5) + " s6=" + r(s6)
-                            + " s7=" + r(s7)
+                            + " s7=" + r(s7) + " s8=" + r(s8)
                             + " active=" + activeSignals + " buf=" + buf
                             + " dist=" + r(dist) + " " + combat.debugSummary());
             data.setKillAuraASwitchBuffer(0);
@@ -402,6 +409,16 @@ public final class CharSilentAim extends TierCheck {
 
         data.setKillAuraASnapRatio(Math.max(data.getKillAuraASnapRatio(), ratio));
         return signal;
+    }
+
+    private double computeRequiredRotationSignal(Location eye, Location compensated, double width, double height,
+                                                 double dist, int ping, PlayerData data) {
+        if (eye == null || compensated == null || data == null || dist > 4.5D) return 0.0D;
+        BoundingBox box = BoundingBox.fromFeet(compensated, width, height);
+        RequiredRotationUtil.Result result = RequiredRotationUtil.evaluate(
+                eye, data.getPacketYaw(), data.getPacketPitch(), box, ping);
+        if (!result.exceedsTolerance()) return 0.0D;
+        return CharSilentAimSignals.requiredRotationScore(result.excessBeyondAllowance());
     }
 
     private double computeGcdLatticeSignal(PlayerData data) {

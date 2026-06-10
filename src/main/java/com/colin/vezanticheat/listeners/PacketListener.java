@@ -550,10 +550,18 @@ public class PacketListener extends PacketListenerAbstract {
     }
 
     private void safeStage(String stage, Runnable action) {
+        long perfStartNs = 0L;
+        if (plugin.perf() != null && plugin.perf().isEnabled()) {
+            perfStartNs = System.nanoTime();
+        }
         try {
             action.run();
         } catch (Throwable t) {
             logThrottled(stage, t);
+        } finally {
+            if (perfStartNs > 0L) {
+                plugin.perf().recordPacketStage(System.nanoTime() - perfStartNs);
+            }
         }
     }
 

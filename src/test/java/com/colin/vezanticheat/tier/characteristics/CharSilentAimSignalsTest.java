@@ -54,4 +54,17 @@ public class CharSilentAimSignalsTest {
         double[] errors = new double[] {40.0D, 32.0D, 24.0D, 16.0D, 8.0D};
         assertTrue(GcdLatticeAnalysis.distributedSnapRatio(errors) >= 0.35D);
     }
+
+    @Test
+    public void closeRangeScaleBoostsSignalsBelowTaper() {
+        assertEquals(1.35D, CharSilentAimSignals.closeRangeSignalScale(0.0D, 1.2D, 1.35D), 0.001D);
+        assertTrue(CharSilentAimSignals.closeRangeSignalScale(0.5D, 1.2D, 1.35D) > 1.1D);
+        assertEquals(1.0D, CharSilentAimSignals.closeRangeSignalScale(1.5D, 1.2D, 1.35D), 0.001D);
+    }
+
+    @Test
+    public void requiredRotationScoreRisesWithExcess() {
+        assertEquals(0.0D, CharSilentAimSignals.requiredRotationScore(0.0D), 0.001D);
+        assertTrue(CharSilentAimSignals.requiredRotationScore(9.0D) > 0.4D);
+    }
 }

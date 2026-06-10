@@ -8,7 +8,22 @@
 # Live tune a check: /vez tune <CheckName> <key> [value]
 # =============================================================================
 
-config-version: 16
+config-version: 17
+
+# Optional license gate for direct premium sales (disabled for marketplace builds)
+license:
+  enabled: false
+  key: ''
+  grace-hours: 24
+  validation-url: ''
+
+# Optional update manifest check (surfaced in /vez status)
+updates:
+  check-enabled: false
+  manifest-url: ''
+
+diagnostics:
+  perf-sampling-enabled: false
 
 # Polar tier system settings
 tier:
@@ -30,7 +45,7 @@ combat-mitigation:
   min-confidence-for-setback: moderate
 
 # Chat prefix used in {prefix} placeholders below
-prefix: '&6[WatchDog] '
+prefix: '&6[VezAC] '
 
 # Master anticheat switch (/vez on|off also toggles this)
 anticheat:
@@ -50,8 +65,8 @@ messages:
   no-permission: '{prefix}&cNo permission.'
   flags-on: '{prefix}&aAlerts enabled.'
   flags-off: '{prefix}&cAlerts disabled.'
-  enabled: '{prefix}&aWatchdog enabled.'
-  disabled: '{prefix}&cWatchdog disabled.'
+  enabled: '{prefix}&aVezAntiCheat enabled.'
+  disabled: '{prefix}&cVezAntiCheat disabled.'
   reload: '{prefix}&aReloaded config.'
 # Skip detections when server or player connection is unstable
 lag:
@@ -388,6 +403,17 @@ engine:
   # a real offset. Default 0.12 blocks; aggressive profiles use 0.08. Teleport lenience is exempt.
   compensation:
     leniency-budget-cap: 0.12
+  exemption-caps:
+    block-change-max-ticks: 6
+    block-change-window-ms: 2000
+    combat-grace-max-ticks: 8
+    combat-grace-window-ms: 2000
+  vehicle:
+    boat-max-per-tick: 0.65
+    minecart-max-per-tick: 0.50
+    default-max-per-tick: 0.55
+    tolerance: 1.15
+    buffer-to-flag: 4
   # CHUNK-UNLOAD HANDLING: instead of skipping validation when chunks are unloaded, enter an
   # "unverified" mode that still accrues horizontal motion into the offset advantage and forces a
   # resync setback if the unverified streak persists beyond max-ticks.

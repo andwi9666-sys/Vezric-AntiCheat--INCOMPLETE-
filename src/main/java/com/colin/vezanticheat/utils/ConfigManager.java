@@ -190,7 +190,8 @@ public class ConfigManager {
     }
 
     public boolean enabled() {
-        return plugin.getConfig().getBoolean("anticheat.enabled", true);
+        if (!plugin.getConfig().getBoolean("anticheat.enabled", true)) return false;
+        return plugin.license() == null || plugin.license().checksAllowed();
     }
 
     public String prefix() {

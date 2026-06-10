@@ -109,6 +109,10 @@ public class VezAntiCheat extends JavaPlugin {
     private ClientBrandListener clientBrandListener;
     private volatile boolean packetHooksRegistered;
     private int vlDecayTaskId = -1; // repeating scheduled global VL decay sweep
+    private com.colin.vezanticheat.utils.PerfSampler perfSampler;
+    private com.colin.vezanticheat.utils.ConfigProfileManager configProfileManager;
+    private com.colin.vezanticheat.license.LicenseManager licenseManager;
+    private com.colin.vezanticheat.license.UpdateChecker updateChecker;
 
     // Whether packet interception is active (always true with PacketEvents)
     private boolean protocolLib;
@@ -135,7 +139,7 @@ public class VezAntiCheat extends JavaPlugin {
 
         // Config management with auto-regeneration on version bump
         saveDefaultConfig();
-        int currentConfigVersion = 16; // v16: Polar tier rewrite, tiers/*.yml
+        int currentConfigVersion = 17; // v17: v1.1.0 license/perf/profile keys
         if (getConfig().getInt("config-version", 0) < currentConfigVersion) {
             getLogger().info("Config outdated (version " + getConfig().getInt("config-version", 0)
                     + " < " + currentConfigVersion + "). Regenerating with new defaults.");
@@ -160,6 +164,11 @@ public class VezAntiCheat extends JavaPlugin {
 
         // Initialize core systems in dependency order
         this.configManager = new ConfigManager(this);
+        this.perfSampler = new com.colin.vezanticheat.utils.PerfSampler(
+                getConfig().getBoolean("diagnostics.perf-sampling-enabled", false));
+        this.configProfileManager = new com.colin.vezanticheat.utils.ConfigProfileManager(this);
+        this.licenseManager = new com.colin.vezanticheat.license.LicenseManager(this);
+        this.updateChecker = new com.colin.vezanticheat.license.UpdateChecker(this);
         this.tierConfigManager = new TierConfigManager(this);
         this.tpsMonitor = new TpsMonitor();
         this.tpsMonitor.start(this);
@@ -169,6 +178,8 @@ public class VezAntiCheat extends JavaPlugin {
         this.banwaveManager = new BanwaveManager(this);
         this.banwaveManager.startAutoTask();
         this.tierCheckManager = new TierCheckManager(this);
+        this.licenseManager.initialize();
+        this.updateChecker.checkAsyncIfEnabled();
         this.polarFlagHistory = new PolarFlagHistory();
         this.combatAnalyzer = new com.colin.vezanticheat.combat.CombatAnalyzer();
         this.combatAnalyzer.getConfig().loadFrom(getConfig());
@@ -441,4 +452,8 @@ public class VezAntiCheat extends JavaPlugin {
     public DiagnosticsTracker diagnostics() { return diagnosticsTracker; }
     public EvidenceManager evidence() { return evidenceManager; }
     public RiskScoreManager riskScore() { return riskScoreManager; }
+    public com.colin.vezanticheat.utils.PerfSampler perf() { return perfSampler; }
+    public com.colin.vezanticheat.utils.ConfigProfileManager profiles() { return configProfileManager; }
+    public com.colin.vezanticheat.license.LicenseManager license() { return licenseManager; }
+    public com.colin.vezanticheat.license.UpdateChecker updates() { return updateChecker; }
 }

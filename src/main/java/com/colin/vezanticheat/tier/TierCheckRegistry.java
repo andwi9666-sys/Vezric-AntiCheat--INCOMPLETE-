@@ -85,6 +85,7 @@ import com.colin.vezanticheat.tier.prediction.PredictionNoSlow;
 import com.colin.vezanticheat.tier.prediction.PredictionOffset;
 import com.colin.vezanticheat.tier.prediction.PredictionPhase;
 import com.colin.vezanticheat.tier.prediction.PredictionSpeed;
+import com.colin.vezanticheat.tier.prediction.PredictionVehicle;
 import com.colin.vezanticheat.tier.prediction.PredictionSpider;
 import com.colin.vezanticheat.tier.prediction.PredictionStep;
 import com.colin.vezanticheat.tier.prediction.PredictionTimer;
@@ -192,6 +193,7 @@ public final class TierCheckRegistry {
         add(new PredictionOffset(plugin));
         add(new PredictionPhase(plugin));
         add(new PredictionSpeed(plugin));
+        add(new PredictionVehicle(plugin));
         add(new PredictionSpider(plugin));
         add(new PredictionStep(plugin));
         add(new PredictionTimer(plugin));

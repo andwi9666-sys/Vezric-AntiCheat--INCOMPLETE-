@@ -1,5 +1,5 @@
 # Balanced profile: mirrors the current production-tuned default configuration.
-prefix: '&6[Watchdog] &r'
+prefix: '&6[VezAC] &r'
 anticheat:
   enabled: true
 flags:
@@ -9,8 +9,8 @@ messages:
   no-permission: '{prefix}&cNo permission.'
   flags-on: '{prefix}&aAlerts enabled.'
   flags-off: '{prefix}&cAlerts disabled.'
-  enabled: '{prefix}&aWatchdog enabled.'
-  disabled: '{prefix}&cWatchdog disabled.'
+  enabled: '{prefix}&aVezAntiCheat enabled.'
+  disabled: '{prefix}&cVezAntiCheat disabled.'
   reload: '{prefix}&aReloaded config.'
 
 lag:
@@ -180,7 +180,7 @@ punish:
   watchdog:
     reason: Cheating through the use of unfair game advantages.
     appeal-url: https://www.hypixel.net/appeal
-    broadcast: '&cWatchdog has banned {player} for cheating!'
+    broadcast: '&c[VezAC] has banned {player} for cheating!'
     remove-message: '&eA player has been removed from your game.'
   reasons:
     REACH: Cheating

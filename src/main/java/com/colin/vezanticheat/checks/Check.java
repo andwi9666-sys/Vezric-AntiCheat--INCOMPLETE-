@@ -108,6 +108,22 @@ public abstract class Check {
         SimulationSubCheck.clearPlayer(uuid);
     }
 
+    /** Drop all legacy static simulation state (e.g. on /vez reload). VL store intentionally persists. */
+    public static void clearAll() {
+        LAST_SETBACK_MS.clear();
+        SHARED_KILLAURA_LAST_SUPPRESS_MS.clear();
+        CLASSIC_SIM_BUFFER.clear();
+        CLASSIC_SIM_LAST_MS.clear();
+        CLASSIC_SIM_LAST_SETBACK_MS.clear();
+        CLASSIC_SIM_LAST_REARM_SUPPRESS_MS.clear();
+        CLASSIC_SIM_LAST_DEDUPE_SUPPRESS_MS.clear();
+        CLASSIC_SIM_LAST_FLAG_SUPPRESS_MS.clear();
+        CLASSIC_SIM_FAMILY_MS.clear();
+        CLASSIC_SIM_FAMILY_SCORE.clear();
+        CLASSIC_SIM_FAMILY_DECAY_MS.clear();
+        SimulationSubCheck.clearAll();
+    }
+
     public static ClassicSimulationSnapshot classicSimulationSnapshot(UUID uuid) {
         return classicSimulationSnapshot(uuid, System.currentTimeMillis(), Long.MAX_VALUE);
     }

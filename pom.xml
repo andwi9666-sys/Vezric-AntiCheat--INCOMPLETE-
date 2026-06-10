@@ -6,7 +6,7 @@
 
     <groupId>com.colin</groupId>
     <artifactId>VezAntiCheat</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>VezAntiCheat</name>
@@ -50,6 +50,11 @@
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+            </resource>
+            <resource>
+                <directory>config-profiles</directory>
+                <targetPath>config-profiles</targetPath>
+                <filtering>false</filtering>
             </resource>
         </resources>
     </build>

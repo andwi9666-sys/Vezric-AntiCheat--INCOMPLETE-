@@ -74,7 +74,7 @@ public final class UncertaintyHandler {
     /** Additive horizontal uncertainty used to widen the candidate search box. */
     public double getHorizontalUncertainty() {
         double u = 0.0D;
-        if (player.couldSkipTick) u += 0.062D;             // 0.03 (x2 for both halves)
+        // RT1-002: couldSkipTick lenience is applied once in reduceOffset, not here.
         if (player.pendingKnockback != null) u += 0.04D;
         if (player.pendingExplosion != null) u += 0.10D;
         if (blockChangeTicks > 0) u += 0.04D;
@@ -90,7 +90,6 @@ public final class UncertaintyHandler {
     /** Additive vertical uncertainty used to widen the candidate search box. */
     public double getVerticalUncertainty() {
         double u = 0.0D;
-        if (player.couldSkipTick) u += 0.062D;
         if (player.pendingKnockback != null) u += 0.04D;
         if (player.pendingExplosion != null) u += 0.12D;
         if (blockChangeTicks > 0) u += 0.05D;
@@ -125,11 +124,12 @@ public final class UncertaintyHandler {
         if (player.pendingExplosion != null) {
             lenience += 0.12D;
         }
+        // RT1-002: 0.03 skip-tick and block-change lenience must not fully stack on the same tick.
         if (player.couldSkipTick) {
             lenience += 0.06D;
         }
         if (blockChangeTicks > 0) {
-            lenience += 0.05D;
+            lenience += player.couldSkipTick ? 0.02D : 0.05D;
         }
         if (player.onSlime || influencedByBouncyBlock) {
             lenience += 0.08D;
@@ -161,8 +161,13 @@ public final class UncertaintyHandler {
         if (knockbackGraceTick) {
             lenience += 0.16D;
         }
+        // RT1-003: combat-grace lenience is reduced when other compensation already applied this tick.
         if (combatMotionTick) {
-            lenience += 0.10D;
+            double combatLenience = 0.10D;
+            if (player.couldSkipTick || blockChangeTicks > 0) {
+                combatLenience = 0.05D;
+            }
+            lenience += combatLenience;
         }
         if (stuckOnEdge) {
             lenience += 0.05D;

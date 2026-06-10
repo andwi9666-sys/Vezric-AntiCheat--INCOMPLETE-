@@ -1,0 +1,24 @@
+VezAntiCheat End User License Agreement
+
+Copyright (c) 2026 Colin Crisp. All rights reserved.
+
+This software is proprietary. You may not copy, modify, distribute, sublicense, or
+sell copies of the Software except as expressly permitted by your purchase agreement
+or marketplace license terms.
+
+PERMITTED USE
+- Run the provided JAR on Minecraft servers you own or operate under a valid license.
+- Configure the plugin via included YAML files and documented commands.
+
+RESTRICTIONS
+- No redistribution of the JAR or source code without written permission.
+- No removal of license or branding notices embedded in the Software.
+- No reverse engineering for the purpose of creating competing anticheat products.
+
+DISCLAIMER
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHOR DOES NOT
+GUARANTEE DETECTION OF ALL CHEATS OR ZERO FALSE POSITIVES. USE AT YOUR OWN RISK.
+
+For marketplace purchases, platform terms may supersede sections of this EULA.
+
+Contact: support URL in README / docs/SUPPORT.md

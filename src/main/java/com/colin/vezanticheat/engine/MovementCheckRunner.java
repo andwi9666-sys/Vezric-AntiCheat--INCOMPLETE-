@@ -14,7 +14,9 @@ import com.colin.vezanticheat.utils.PotionUtil;
 import com.colin.vezanticheat.utils.SetbackUtil;
 import com.colin.vezanticheat.utils.SpeedPatternUtil;
 import com.colin.vezanticheat.utils.UseItemTracker;
+import com.colin.vezanticheat.tier.prediction.PredictionVehicle;
 import org.bukkit.GameMode;
+import org.bukkit.entity.Entity;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -63,6 +65,22 @@ public final class MovementCheckRunner {
                                    boolean clientGround, boolean positionIncluded, long nowMs) {
         if (!isEnabled() || player == null || data == null) return null;
 
+        long perfStartNs = 0L;
+        if (plugin.perf() != null && plugin.perf().isEnabled()) {
+            perfStartNs = System.nanoTime();
+        }
+        try {
+            return onMovementInner(player, data, from, to, clientGround, positionIncluded, nowMs);
+        } finally {
+            if (perfStartNs > 0L) {
+                plugin.perf().recordMovement(System.nanoTime() - perfStartNs);
+            }
+        }
+    }
+
+    private EngineResult onMovementInner(Player player, PlayerData data, Location from, Location to,
+                                         boolean clientGround, boolean positionIncluded, long nowMs) {
+
         CompensatedWorld world = data.getCompensatedWorld();
         if (to != null && to.getWorld() != null) {
             world.setWorld(to.getWorld());
@@ -104,6 +122,9 @@ public final class MovementCheckRunner {
         String exempt = exemptReason(player, data, from, to);
         if (exempt != null) {
             syncToPosition(mp, to, clientGround);
+            if ("vehicle".equals(exempt)) {
+                handleVehicleMovement(player, data, from, to);
+            }
             return publishExempt(data, nowMs, exempt);
         }
 
@@ -391,7 +412,20 @@ public final class MovementCheckRunner {
 
         // 0.03 estimate + block-change uncertainty.
         mp.couldSkipTick = mp.pointThreeEstimator.determineCanSkipTick(positionIncluded);
-        mp.uncertaintyHandler.blockChangeTicks = recentBlockChange(data, nowMs) ? 1 : 0;
+        boolean blockChange = recentBlockChange(data, nowMs);
+        if (blockChange) {
+            int maxTicks = plugin.getConfig().getInt("engine.exemption-caps.block-change-max-ticks", 6);
+            long windowMs = plugin.getConfig().getLong("engine.exemption-caps.block-change-window-ms", 2000L);
+            blockChange = data.tryConsumeBlockChangeLenience(nowMs, maxTicks, windowMs);
+        }
+        mp.uncertaintyHandler.blockChangeTicks = blockChange ? 1 : 0;
+    }
+
+    private void handleVehicleMovement(Player player, PlayerData data, Location from, Location to) {
+        com.colin.vezanticheat.tier.TierCheck check = plugin.tierChecks().registry().get("PredictionVehicle");
+        if (check instanceof PredictionVehicle) {
+            ((PredictionVehicle) check).evaluateMountMovement(player, data, from, to);
+        }
     }
 
     private String exemptReason(Player player, PlayerData data, Location from, Location to) {
@@ -497,7 +531,11 @@ public final class MovementCheckRunner {
             boolean combat = (data.getLastUseEntityTime() > 0L && (nowMs - data.getLastUseEntityTime()) <= combatMs)
                     || (data.getLastDamageTime() > 0L && (nowMs - data.getLastDamageTime()) <= combatMs);
             if (combat) {
-                mp.uncertaintyHandler.combatMotionTick = true;
+                int maxTicks = plugin.getConfig().getInt("engine.exemption-caps.combat-grace-max-ticks", 8);
+                long windowMs = plugin.getConfig().getLong("engine.exemption-caps.combat-grace-window-ms", 2000L);
+                if (data.tryConsumeCombatGraceTick(nowMs, maxTicks, windowMs)) {
+                    mp.uncertaintyHandler.combatMotionTick = true;
+                }
             }
         }
     }

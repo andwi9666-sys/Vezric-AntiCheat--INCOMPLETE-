@@ -4,7 +4,9 @@ import com.colin.vezanticheat.VezAntiCheat;
 import com.colin.vezanticheat.data.PlayerData;
 import com.colin.vezanticheat.prediction.PredictionResult;
 import com.colin.vezanticheat.tier.TierCheck;
+import com.colin.vezanticheat.utils.ConfigProfileManager;
 import com.colin.vezanticheat.utils.DiagnosticsTracker;
+import com.colin.vezanticheat.utils.PerfSampler;
 import com.colin.vezanticheat.utils.KillAuraAggregateUtil;
 import com.colin.vezanticheat.utils.LagProfileUtil;
 import com.colin.vezanticheat.utils.LagrangeUtil;
@@ -47,7 +49,7 @@ public class VezCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(c("&6[Vez] &eUsage: /vez <on|off|status|reload|info|trace|tune|verbose|debug|announce|ai|combat>"));
+            sender.sendMessage(c("&6[VezAC] &eUsage: /vez <on|off|status|reload|profile|info|trace|tune|verbose|debug|announce|ai|combat>"));
             return true;
         }
 
@@ -66,19 +68,68 @@ public class VezCommand implements CommandExecutor {
         }
 
         if (sub.equals("status")) {
-            boolean enabled = plugin.getConfig().getBoolean("anticheat.enabled", true);
-            sender.sendMessage(c("&6[Vez] &eEnabled: &f" + enabled));
-            sender.sendMessage(c("&6[Vez] &ePlugin loaded: &f" + plugin.isEnabled()));
-            sender.sendMessage(c("&6[Vez] &ePacket hooks: &f" + plugin.packetHooksRegistered()));
-            sender.sendMessage(c("&6[Vez] &ePacketEvents: &f" + (com.github.retrooper.packetevents.PacketEvents.getAPI() != null)));
-            sender.sendMessage(c("&6[Vez] &eTier checks loaded: &f" + plugin.tierChecks().count()));
-            sender.sendMessage(c("&6[Vez] &eArchitecture: &fPolar tiers (CHAR/PRISM/SIM/PRED)"));
-            sender.sendMessage(c("&6[Vez] &eTPS: &f" + (plugin.tps() != null ? round2(plugin.tps().getTps()) : "20.0")));
+            boolean enabled = plugin.cfg().enabled();
+            sender.sendMessage(c("&6[VezAC] &eEnabled: &f" + enabled));
+            sender.sendMessage(c("&6[VezAC] &ePlugin loaded: &f" + plugin.isEnabled()));
+            sender.sendMessage(c("&6[VezAC] &ePacket hooks: &f" + plugin.packetHooksRegistered()));
+            sender.sendMessage(c("&6[VezAC] &ePacketEvents: &f" + (com.github.retrooper.packetevents.PacketEvents.getAPI() != null)));
+            sender.sendMessage(c("&6[VezAC] &eTier checks loaded: &f" + plugin.tierChecks().count()));
+            sender.sendMessage(c("&6[VezAC] &eArchitecture: &fPolar tiers (CHAR/PRISM/SIM/PRED)"));
+            sender.sendMessage(c("&6[VezAC] &eTPS: &f" + (plugin.tps() != null ? round2(plugin.tps().getTps()) : "20.0")));
+            sender.sendMessage(c("&6[VezAC] &eOnline: &f" + Bukkit.getOnlinePlayers().size()));
+            if (plugin.license() != null && plugin.getConfig().getBoolean("license.enabled", false)) {
+                sender.sendMessage(c("&6[VezAC] &eLicense: &f"
+                        + (plugin.license().checksAllowed() ? "active/grace" : "expired")));
+            }
+            if (plugin.updates() != null) {
+                sender.sendMessage(c("&6[VezAC] &e" + plugin.updates().statusLine(plugin.getDescription().getVersion())));
+            }
+            PerfSampler perf = plugin.perf();
+            if (perf != null) {
+                PerfSampler.Snapshot snap = perf.snapshot();
+                sender.sendMessage(c("&6[VezAC] &ePerf: &fmovement " + round2(snap.movementAvgMs) + "ms ("
+                        + snap.movementSamples + " samples), packets " + round2(snap.packetAvgMs) + "ms ("
+                        + snap.packetSamples + " samples)"));
+            }
             if (!plugin.isEnabled() || !plugin.packetHooksRegistered()) {
-                sender.sendMessage(c("&6[Vez] &cChecks will not run until PacketEvents is ready and hooks register."));
-                sender.sendMessage(c("&6[Vez] &7Use &f/vez reload &7after fixing PacketEvents — avoid &f/reload&7."));
+                sender.sendMessage(c("&6[VezAC] &cChecks will not run until PacketEvents is ready and hooks register."));
+                sender.sendMessage(c("&6[VezAC] &7Use &f/vez reload &7after fixing PacketEvents — avoid &f/reload&7."));
             } else if (!enabled) {
-                sender.sendMessage(c("&6[Vez] &cAnticheat is disabled. Use &f/vez on &cto re-enable."));
+                sender.sendMessage(c("&6[VezAC] &cAnticheat is disabled. Use &f/vez on &cto re-enable."));
+            }
+            return true;
+        }
+
+        if (sub.equals("profile")) {
+            if (!sender.hasPermission("vez.admin")) {
+                sender.sendMessage(pref() + c("&cNo permission."));
+                return true;
+            }
+            if (args.length < 2) {
+                sender.sendMessage(pref() + c("&eUsage: /vez profile <lenient|balanced|aggressive>"));
+                sender.sendMessage(pref() + c("&7Copies a bundled profile to config.yml and reloads."));
+                return true;
+            }
+            String profileName = args[1].toLowerCase();
+            if (!ConfigProfileManager.isValidProfile(profileName)) {
+                sender.sendMessage(pref() + c("&cUnknown profile. Use lenient, balanced, or aggressive."));
+                return true;
+            }
+            try {
+                plugin.profiles().applyProfile(profileName);
+                plugin.reloadConfig();
+                plugin.cfg().reload();
+                plugin.tierCfg().reload();
+                if (plugin.tierChecks() != null) plugin.tierChecks().clearBuffers();
+                if (plugin.riskScore() != null) plugin.riskScore().reload();
+                plugin.reloadCombatSettings();
+                if (plugin.perf() != null) {
+                    plugin.perf().setEnabled(plugin.getConfig().getBoolean("diagnostics.perf-sampling-enabled", false));
+                }
+                plugin.startDecayTask();
+                sender.sendMessage(pref() + c("&aApplied profile &f" + profileName + "&a and reloaded."));
+            } catch (Exception e) {
+                sender.sendMessage(pref() + c("&cProfile apply failed: " + e.getMessage()));
             }
             return true;
         }
@@ -334,8 +385,13 @@ public class VezCommand implements CommandExecutor {
             if (plugin.tierChecks() != null) plugin.tierChecks().clearBuffers();
             if (plugin.riskScore() != null) plugin.riskScore().reload();
             plugin.reloadCombatSettings();
+            if (plugin.perf() != null) {
+                plugin.perf().setEnabled(plugin.getConfig().getBoolean("diagnostics.perf-sampling-enabled", false));
+            }
+            if (plugin.license() != null) plugin.license().initialize();
+            if (plugin.updates() != null) plugin.updates().checkAsyncIfEnabled();
             plugin.startDecayTask(); // re-arm scheduled VL decay with reloaded rate/interval
-            sender.sendMessage(c("&6[Vez] &aConfig reloaded."));
+            sender.sendMessage(c("&6[VezAC] &aConfig reloaded."));
             return true;
         }
 

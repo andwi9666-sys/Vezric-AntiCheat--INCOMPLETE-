@@ -148,6 +148,11 @@ public class PlayerData {
     private double killAuraASnapRatio;
     private double partialKbRatio;
     private int inventoryMoveCount;
+    private int vehicleSpeedViolationStreak;
+    private int engineBlockChangeLenienceUsed;
+    private long engineBlockChangeLenienceWindowStart;
+    private int engineCombatGraceTicksUsed;
+    private long engineCombatGraceWindowStart;
     private double peakAngularVelocityDegPerSec;
     private int scaffoldPlaceCount;
     private final Deque<RotationSample> rotationRingBuffer = new ArrayDeque<RotationSample>(20);
@@ -833,6 +838,32 @@ public class PlayerData {
 
     public void resetInventoryMoveCount() {
         inventoryMoveCount = 0;
+    }
+
+    public int getVehicleSpeedViolationStreak() { return vehicleSpeedViolationStreak; }
+    public void setVehicleSpeedViolationStreak(int vehicleSpeedViolationStreak) {
+        this.vehicleSpeedViolationStreak = Math.max(0, vehicleSpeedViolationStreak);
+    }
+
+    public boolean tryConsumeBlockChangeLenience(long nowMs, int maxPerWindow, long windowMs) {
+        if (engineBlockChangeLenienceWindowStart <= 0L
+                || nowMs - engineBlockChangeLenienceWindowStart > windowMs) {
+            engineBlockChangeLenienceWindowStart = nowMs;
+            engineBlockChangeLenienceUsed = 0;
+        }
+        if (engineBlockChangeLenienceUsed >= maxPerWindow) return false;
+        engineBlockChangeLenienceUsed++;
+        return true;
+    }
+
+    public boolean tryConsumeCombatGraceTick(long nowMs, int maxPerWindow, long windowMs) {
+        if (engineCombatGraceWindowStart <= 0L || nowMs - engineCombatGraceWindowStart > windowMs) {
+            engineCombatGraceWindowStart = nowMs;
+            engineCombatGraceTicksUsed = 0;
+        }
+        if (engineCombatGraceTicksUsed >= maxPerWindow) return false;
+        engineCombatGraceTicksUsed++;
+        return true;
     }
     public double getPeakAngularVelocityDegPerSec() { return peakAngularVelocityDegPerSec; }
     public void setPeakAngularVelocityDegPerSec(double peakAngularVelocityDegPerSec) {
