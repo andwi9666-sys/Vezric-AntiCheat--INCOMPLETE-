@@ -80,7 +80,7 @@ All tier checks are standalone implementations with per-check VL pools. Tune thr
 - **TargetSwitchAnalyzer** — 30s suspicious-switch counter; pre-aim halving removed for repeated suspicious switches.
 
 ### Evidence basis
-- **331** JUnit tests green (`mvn test`); regression suites include `RequiredRotationUtilTest`, `GcdLatticeAnalysisTest`, `SpeedUtilEnvelopeTest`, `FlyPatternUtilTest`, `CheckClearPlayerTest`.
+- **339** JUnit tests green (`mvn test`); regression suites include `RequiredRotationUtilTest`, `GcdLatticeAnalysisTest`, `SpeedUtilEnvelopeTest`, `FlyPatternUtilTest`, `CheckClearPlayerTest`, `SimulationSubCheckClearPlayerTest`, `PrismAutoClickCvTest`, `CharSilentAimSignalsInventoryTest`.
 - Manual matrix documented in `docs/testing-plan.md` §4.
 
 ### Phase 4 red-team dry loop (2 × 6 hunters)
@@ -90,7 +90,7 @@ Code-path audit across six hunter personas (movement, setback, combat rewind, si
 | Round | Outcome | Patches |
 |-------|---------|---------|
 | **1** | 8 actionable findings | RT4-001 setback pending clear; RT4-002 `max-pending-ms` ≥ circuit breaker; RT6-001 decay lag gate; RT5-001 enforcement anchor freeze; RT1-005 hover on exempt ticks; RT1-001 unverified accrual floor; RT4-004 `Check.clearPlayer` on quit; RT2-001/002 distributed snap + lattice conformity; RT2-003/005 pre-attack snap + live-rewind penalty (ping ≥ 100) |
-| **2** | **CLEAN** | No new P0/P1; existing patches verified by 331 tests + `mvn clean package` |
+| **2** | **CLEAN** | No new P0/P1; gap-closure pass verified by 339 tests + `mvn clean package` |
 
 Hunter matrix (manual live validation still recommended on staging):
 
@@ -99,11 +99,21 @@ Hunter matrix (manual live validation still recommended on staging):
 3. **Combat rewind** — live fallback expansion, invalid-rewind behavior score at high ping
 4. **Silent aim** — distributed snap, GCD lattice, pre-attack snap, center-bias close range
 5. **Autoclicker** — PrismAutoClickA CV band below 9 CPS
-6. **Session** — quit buffer purge (`Check` + `TierCheck`), VL decay under lag
+6. **Session** — quit buffer purge (`Check` + `TierCheck` + `SimulationSubCheck`), VL decay under lag
+
+### RT3 protocol / transaction audit (gap-closure pass)
+
+| ID | Finding | Status |
+|----|---------|--------|
+| RT3-001 | Blink via movement-gap ledger farming | **Mitigated** — `PlayerClock.applyDriftToLedger` debits bounded amount on behind-ticks; teleport pauses accrual; `PredictionTimer` reads cumulative ledger |
+| RT3-002 | Position-packet tick mis-bucketing under lag | **Fixed** — `positionPacketsThisTick` buckets on `TransactionTracker.currentServerTick()` |
+| RT3-003 | Transaction-ID prediction for reach rewind | **Low risk** — negative action IDs; echoes cancelled on Netty thread; `CombatRewind` null-safe invalid result |
+| RT3-004 | Packet-order abuse (attack before position) | **Monitor** — `PrismPacketOrderSupport` + combat grace windows; no standalone P0 in code audit |
+| RT3-005 | Rotation-only timer inflation | **Mitigated** — `PlayerClock.onFlyingPacket` ignores rotation-only packets (`positionIncluded` gate) |
 
 ### Config profiles
 
-`config-profiles/{lenient,balanced,aggressive}.yml` now mirror hardened `combat-analysis.rewind`, `required-rotation`, `engine.unverified`, `engine.compensation.leniency-budget-cap`, and `setback-blocker.max-pending-ms`. Profiles inherit any keys omitted from `config.yml` defaults.
+`config-profiles/{lenient,balanced,aggressive}.yml` mirror hardened `combat-analysis.rewind`, `required-rotation`, `engine.unverified`, `engine.compensation.leniency-budget-cap`, and `setback-blocker.max-pending-ms`. **Lenient** adds `engine.slab-offset-grace: 0.12` (balanced/aggressive use tier default 0.08). Profiles inherit any keys omitted from `config.yml` defaults.
 
 ### Residual risks (documented, not blocking tag)
 
@@ -113,7 +123,9 @@ Hunter matrix (manual live validation still recommended on staging):
 | RT1-003/004 | Combat-grace / block-place exemption farming | Exemption ordering hardened; live soak on PvP arenas |
 | RT2-004 | Close-range silent aim still down-weights some long-range signals | s5/s6 retained ≤ 1.2 blocks; tune `CharSilentAim` shadow first |
 | RT4-003 | Quit/rejoin VL vs tier-buffer asymmetry (`CheckVLStore` persists) | By design for banwave continuity; `/vez clear` for staff reset |
-| RT6-002 | `/vez reload` may desync in-flight tier buffers | Reload during low player count; full restart for prod deploy |
+| RT4-005 | `SimulationSubCheck` shared buffer bleed on quit | **Fixed** — `SimulationSubCheck.clearPlayer` wired via `Check.clearPlayer`; `clearAll` on `/vez reload` |
+| RT6-002 | `/vez reload` may desync in-flight tier buffers | **Partial** — `TierCheck.clearAll` + `SimulationSubCheck.clearAll` on reload; prefer low-pop reload or full restart for prod |
 | RT5-002 | Vehicle-mounted engine exempt path | Expected; vehicle checks are separate tier family |
 
-- `partialKbRatio` / `inventoryMoveCount` retained — still read by `CharVelocityPattern` / `CharSilentAimSignals`.
+- `partialKbRatio` retained — still read by `CharVelocityPattern` / `CharSilentAimSignals`.
+- `inventoryMoveCount` now incremented on horizontal movement while inventory is open (`PacketListener` → `PlayerData.noteInventoryMoveTick`).

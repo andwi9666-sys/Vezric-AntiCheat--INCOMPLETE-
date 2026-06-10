@@ -64,6 +64,7 @@ combat-analysis:
     min-samples: 10
 
 engine:
+  slab-offset-grace: 0.12
   compensation:
     leniency-budget-cap: 0.14
   unverified:

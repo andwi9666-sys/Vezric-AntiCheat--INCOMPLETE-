@@ -562,6 +562,7 @@ public class PlayerListener implements Listener {
         Player p = (Player) e.getPlayer();
         PlayerData d = plugin.data().get(p);
         d.setInventoryOpen(true);
+        d.resetInventoryMoveCount();
         d.setLastInventoryAction(System.currentTimeMillis());
 
         long momentumExemptMs = plugin.tierCfg().checkLong("PrismInventoryA", "momentumExemptMs", 500L);
@@ -586,6 +587,7 @@ public class PlayerListener implements Listener {
         if (!(e.getPlayer() instanceof Player)) return;
         PlayerData d = plugin.data().get((Player) e.getPlayer());
         d.setInventoryOpen(false);
+        d.resetInventoryMoveCount();
         d.setLastInventoryAction(System.currentTimeMillis());
     }
 

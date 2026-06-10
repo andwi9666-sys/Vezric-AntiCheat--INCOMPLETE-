@@ -824,6 +824,16 @@ public class PlayerData {
     public void setPartialKbRatio(double partialKbRatio) { this.partialKbRatio = partialKbRatio; }
     public int getInventoryMoveCount() { return inventoryMoveCount; }
     public void setInventoryMoveCount(int inventoryMoveCount) { this.inventoryMoveCount = inventoryMoveCount; }
+
+    /** Counts horizontal movement ticks while the inventory GUI is open (silent-aim inventory signal). */
+    public void noteInventoryMoveTick(double horizontalDelta) {
+        if (!inventoryOpen || horizontalDelta < 0.04D) return;
+        inventoryMoveCount++;
+    }
+
+    public void resetInventoryMoveCount() {
+        inventoryMoveCount = 0;
+    }
     public double getPeakAngularVelocityDegPerSec() { return peakAngularVelocityDegPerSec; }
     public void setPeakAngularVelocityDegPerSec(double peakAngularVelocityDegPerSec) {
         this.peakAngularVelocityDegPerSec = Math.max(0.0D, peakAngularVelocityDegPerSec);

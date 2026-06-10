@@ -105,6 +105,7 @@ public abstract class Check {
         CLASSIC_SIM_FAMILY_MS.remove(uuid);
         CLASSIC_SIM_FAMILY_SCORE.remove(uuid);
         CLASSIC_SIM_FAMILY_DECAY_MS.remove(uuid);
+        SimulationSubCheck.clearPlayer(uuid);
     }
 
     public static ClassicSimulationSnapshot classicSimulationSnapshot(UUID uuid) {

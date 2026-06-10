@@ -169,6 +169,45 @@ public class CombatHitClassifierTest {
     }
 
     @Test
+    public void invalidRewindAddsLiveFallbackExpansionBonus() {
+        CombatSample liveFallback = CombatSample.builder()
+                .attackerUuid(ATTACKER)
+                .targetUuid(TARGET)
+                .attackerEye(new Location(world, 0.0D, 1.62D, 0.0D))
+                .targetLocation(new Location(world, 3.15D, 0.0D, 0.0D))
+                .rewoundValid(false)
+                .attackerYaw(-88.0F)
+                .attackerPitch(0.0F)
+                .targetWidth(0.6D)
+                .targetHeight(1.8D)
+                .pingEstimate(80)
+                .timestampMs(50L)
+                .build();
+        CombatSample rewound = CombatSample.builder()
+                .attackerUuid(ATTACKER)
+                .targetUuid(TARGET)
+                .attackerEye(new Location(world, 0.0D, 1.62D, 0.0D))
+                .targetLocation(new Location(world, 3.15D, 0.0D, 0.0D))
+                .rewoundTargetLocation(new Location(world, 3.15D, 0.0D, 0.0D))
+                .rewoundValid(true)
+                .attackerYaw(-88.0F)
+                .attackerPitch(0.0F)
+                .targetWidth(0.6D)
+                .targetHeight(1.8D)
+                .pingEstimate(80)
+                .timestampMs(50L)
+                .build();
+
+        CombatHitResult live = CombatHitClassifier.classify(liveFallback, config);
+        CombatHitResult rewind = CombatHitClassifier.classify(rewound, config);
+        Assert.assertNotNull(live);
+        Assert.assertNotNull(rewind);
+        Assert.assertTrue(live.getAllowedExpansion() > rewind.getAllowedExpansion());
+        Assert.assertEquals(config.getLivePositionFallbackExpansionBonus(),
+                live.getAllowedExpansion() - rewind.getAllowedExpansion(), 0.001D);
+    }
+
+    @Test
     public void analyzerCancelOnImpossibleAndBuffer() {
         CombatAnalyzer analyzer = new CombatAnalyzer();
         CombatSample sample = sampleFacingTarget(-5.0D, -90.0F, 0.0F, 30);

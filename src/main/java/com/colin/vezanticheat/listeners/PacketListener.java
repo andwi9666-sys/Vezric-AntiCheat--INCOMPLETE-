@@ -220,7 +220,10 @@ public class PacketListener extends PacketListenerAbstract {
                 if (previous == null) previous = p.getLocation().clone();
                 else previous = previous.clone();
 
+                double dx = packetLoc.getX() - previous.getX();
+                double dz = packetLoc.getZ() - previous.getZ();
                 double dy = packetLoc.getY() - previous.getY();
+                d.noteInventoryMoveTick(Math.hypot(dx, dz));
                 if (Math.abs(dy - 0.0625D) < 1.0E-4D || Math.abs(dy - 0.11D) < 1.0E-3D) {
                     d.setLastMicroYOffsetMs(now);
                 }

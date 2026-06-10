@@ -49,6 +49,7 @@ public final class TierCheckManager {
      */
     public void clearBuffers() {
         TierCheck.clearAll();
+        com.colin.vezanticheat.checks.prediction.SimulationSubCheck.clearAll();
     }
 
     public int count() { return registry.count(); }

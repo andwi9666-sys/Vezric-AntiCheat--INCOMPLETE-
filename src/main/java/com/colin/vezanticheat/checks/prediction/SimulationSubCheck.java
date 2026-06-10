@@ -258,6 +258,19 @@ public abstract class SimulationSubCheck extends Check {
         return total;
     }
 
+    /** Purge shared prediction simulation buffers on quit to prevent cross-session bleed. */
+    public static void clearPlayer(UUID id) {
+        clearSimulationState(id);
+    }
+
+    /** Drop all players' shared simulation state (e.g. on /vez reload). */
+    public static void clearAll() {
+        SHARED_BUFFER.clear();
+        SHARED_LAST_MS.clear();
+        SHARED_SOURCE_SCORES.clear();
+        SHARED_SOURCE_LAST_MS.clear();
+    }
+
     private static void clearSimulationState(UUID id) {
         if (id == null) return;
         SHARED_BUFFER.remove(id);

@@ -230,7 +230,10 @@ public final class EngineMovementGrace {
         // sub-threshold offset on every step surface. Replaced with a tighter buffered value that
         // stays inside the engine compensation leniency budget cap (engine.compensation
         // .leniency-budget-cap, default 0.12) so step-surface grace cannot be farmed past the cap.
-        double maxOffset = CheckConfigUtil.checkDouble(plugin, cfg, "engineSlabOffsetGrace", 0.08D);
+        double maxOffset = plugin.getConfig().getDouble("engine.slab-offset-grace", -1.0D);
+        if (maxOffset < 0.0D) {
+            maxOffset = CheckConfigUtil.checkDouble(plugin, cfg, "engineSlabOffsetGrace", 0.08D);
+        }
         if (reducedOffset > maxOffset) return false;
 
         Location from = data.getLastMoveFrom();

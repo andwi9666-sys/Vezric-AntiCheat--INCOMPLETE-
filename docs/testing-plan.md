@@ -79,6 +79,29 @@ Expected result:
 - Circuit breaker freezes movement after 3 setbacks / 2s instead of granting free movement.
 - Next movement packet after setback does not immediately re-flag from the correction.
 
+## 5. Staging Release Checklist (v1.0.0-hardened)
+
+Run on a 1.8.8 Spigot test server before production deploy. Mark each row when validated.
+
+| # | Scenario | Automated coverage | Staging status |
+|---|----------|-------------------|----------------|
+| 1 | Speed setback, no re-flag loop | `SetbackRateLimiterTest`, `SetbackUtilTest` | _pending operator_ |
+| 2 | Fly/hover windowed detection | `FlyPatternUtilTest`, `PredictionTierSignalsTest` | _pending operator_ |
+| 3 | Phase stale-anchor rejection | `SetbackUtilTest` | _pending operator_ |
+| 4 | Blink release / timer debt | `PlayerClockTest` | _pending operator_ |
+| 5 | Rotation-only packets skip timer | `PlayerClock` position gate | _pending operator_ |
+| 6 | Anti-KB punitive setback ordering | `MovementEnforcement` code path | _pending operator_ |
+| 7 | Silent aim required-rotation median | `RequiredRotationUtilTest`, `CharSilentAimSignalsTest` | _pending operator_ |
+| 8 | Reach rewound AABB | `CombatHitClassifierTest`, `CombatRewindNullSafetyTest` | _pending operator_ |
+| 9 | Legit ping sweep 20–180ms | `CombatFalsePositiveGuardTest` | _pending operator_ |
+| 10 | Quit buffer purge | `CheckClearPlayerTest`, `SimulationSubCheckClearPlayerTest`, `TierCheckBufferLifecycleTest` | _pending operator_ |
+| 11 | `/vez reload` buffer flush | `TierCheckManager.clearBuffers` + `SimulationSubCheck.clearAll` | _pending operator_ |
+| 12 | Inventory-move silent aim signal | `CharSilentAimSignalsInventoryTest` | _pending operator_ |
+
+**Release gate (CI):** `mvn clean package` green; all unit tests pass; jar at `target/VezAntiCheat-1.0.0.jar`.
+
+**Release gate (git):** tag `v1.0.0-hardened` on hardened commit; push `main` + tag when `origin` remote is configured.
+
 ## Debug Review
 
 For every intentional flag candidate, verify debug includes:
