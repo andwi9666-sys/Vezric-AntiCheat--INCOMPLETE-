@@ -98,9 +98,17 @@ Run on a 1.8.8 Spigot test server before production deploy. Mark each row when v
 | 11 | `/vez reload` buffer flush | `TierCheckManager.clearBuffers` + `SimulationSubCheck.clearAll` | _pending operator_ |
 | 12 | Inventory-move silent aim signal | `CharSilentAimSignalsInventoryTest` | _pending operator_ |
 
-**Release gate (CI):** `mvn clean package` green; all unit tests pass; jar at `target/VezAntiCheat-1.0.0.jar`.
+**Release gate (CI):** PASSED @ `2f41a2c` — `mvn clean package` green, **339** unit tests, jar at `target/VezAntiCheat-1.0.0.jar`.
 
-**Release gate (git):** tag `v1.0.0-hardened` on hardened commit; push `main` + tag when `origin` remote is configured.
+**Release gate (git):** tag `v1.0.0-hardened` @ `2f41a2c`. Push when remote is configured:
+
+```bash
+git remote add origin <repository-url>
+git push -u origin main
+git push origin v1.0.0-hardened
+```
+
+**Live staging (§5 table):** requires a 1.8.8 Spigot test server with PacketEvents; automated suites above cover logic paths — mark each row after in-game validation.
 
 ## Debug Review
 
