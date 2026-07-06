@@ -24,6 +24,8 @@ public final class BadPacketTracker {
     private int positionlessFlyingStreak;
     private long lastPositionPacketMs;
     private long windowStartMs;
+    private long pendingNoSwingAttackMs;
+    private int pendingNoSwingEntityId = -1;
 
     /** Composite signal counters for BadPacketsZ within the current short window. */
     private int blatantSignalScore;
@@ -146,6 +148,18 @@ public final class BadPacketTracker {
     public long windowStartMs() { return windowStartMs; }
     public int blatantSignalScore() { return blatantSignalScore; }
     public String blatantContributors() { return blatantContributors.toString(); }
+    public long pendingNoSwingAttackMs() { return pendingNoSwingAttackMs; }
+    public int pendingNoSwingEntityId() { return pendingNoSwingEntityId; }
+
+    public void setPendingNoSwingAttack(long attackMs, int entityId) {
+        pendingNoSwingAttackMs = attackMs;
+        pendingNoSwingEntityId = entityId;
+    }
+
+    public void clearPendingNoSwingAttack() {
+        pendingNoSwingAttackMs = 0L;
+        pendingNoSwingEntityId = -1;
+    }
 
     /** Per-check structural score for Prism bad-packet tier checks. */
     public int structuralScore(String checkName) {

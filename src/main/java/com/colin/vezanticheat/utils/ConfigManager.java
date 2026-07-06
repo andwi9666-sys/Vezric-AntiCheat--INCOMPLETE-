@@ -195,7 +195,7 @@ public class ConfigManager {
     }
 
     public String prefix() {
-        return color(plugin.getConfig().getString("prefix", "&6[Vez] &r"));
+        return color(plugin.getConfig().getString("prefix", "&0&l[PE&7RPLEX&8ION] &r"));
     }
 
     public String msg(String key) {
@@ -213,6 +213,50 @@ public class ConfigManager {
 
     public boolean punishEnabled() {
         return plugin.getConfig().getBoolean("punish.enabled", true);
+    }
+
+    /**
+     * Buyer-facing safety mode gate. When punish.safety-mode is missing (pre-1.2.0
+     * configs), derive from legacy keys so existing setups keep their exact behavior:
+     * punish.enabled=false → ALERTS_ONLY, execution.type=IMMEDIATE → INSTANT, else BANWAVE.
+     */
+    public com.colin.vezanticheat.punishment.PunishmentMode punishSafetyMode() {
+        String raw = plugin.getConfig().getString("punish.safety-mode", null);
+        if (raw != null && !raw.trim().isEmpty()) {
+            return com.colin.vezanticheat.punishment.PunishmentMode.parse(
+                    raw, com.colin.vezanticheat.punishment.PunishmentMode.BANWAVE);
+        }
+        if (!punishEnabled()) {
+            return com.colin.vezanticheat.punishment.PunishmentMode.ALERTS_ONLY;
+        }
+        if ("IMMEDIATE".equalsIgnoreCase(punishExecutionType())) {
+            return com.colin.vezanticheat.punishment.PunishmentMode.INSTANT;
+        }
+        return com.colin.vezanticheat.punishment.PunishmentMode.BANWAVE;
+    }
+
+    /** Punishment-time TPS gate (punish.lag-gate): defer executions during server lag. */
+    public boolean punishLagGateEnabled() {
+        return plugin.getConfig().getBoolean("punish.lag-gate.enabled", true);
+    }
+
+    public long punishLagGateRetryMs() {
+        return plugin.getConfig().getLong("punish.lag-gate.retry-delay-ms", 120000L);
+    }
+
+    /**
+     * Extra exemption-window milliseconds for a player's current ping
+     * (exempt.ping-scaling): min(ping * factor, cap-ms). High-ping players get
+     * longer teleport/velocity/blockstate/potion grace so late packets do not flag.
+     */
+    public long exemptPingBonusMs(org.bukkit.entity.Player player) {
+        if (player == null) return 0L;
+        if (!plugin.getConfig().getBoolean("exempt.ping-scaling.enabled", true)) return 0L;
+        int ping = PingUtil.getPing(player);
+        if (ping <= 0) return 0L;
+        double factor = plugin.getConfig().getDouble("exempt.ping-scaling.factor", 0.5D);
+        long cap = plugin.getConfig().getLong("exempt.ping-scaling.cap-ms", 150L);
+        return Math.min((long) (ping * factor), Math.max(0L, cap));
     }
 
     public int banVl() {
@@ -374,23 +418,30 @@ public class ConfigManager {
         return plugin.getConfig().getString("punish.reasons." + category, "Cheating");
     }
 
+    // Ban announcement settings. Reads punish.announcements.*; falls back to the
+    // legacy punish.watchdog.* keys so pre-1.2.0 configs keep working.
+    private String announcementString(String key, String def) {
+        String legacy = plugin.getConfig().getString("punish.watchdog." + key, def);
+        return plugin.getConfig().getString("punish.announcements." + key, legacy);
+    }
+
     public String watchdogReason(String category) {
-        String fallback = plugin.getConfig().getString("punish.watchdog.reason",
+        String fallback = announcementString("reason",
                 "Cheating through the use of unfair game advantages.");
         if (category == null) return fallback;
-        return plugin.getConfig().getString("punish.watchdog.reasons." + category, fallback);
+        return announcementString("reasons." + category, fallback);
     }
 
     public String watchdogAppealUrl() {
-        return plugin.getConfig().getString("punish.watchdog.appeal-url", "https://www.hypixel.net/appeal");
+        return announcementString("appeal-url", "https://your-server.example/appeal");
     }
 
     public String watchdogBroadcast() {
-        return plugin.getConfig().getString("punish.watchdog.broadcast", "&cWatchdog has banned {player} for cheating!");
+        return announcementString("broadcast", "&4Perplexion &7has removed &c{player} &7for cheating.");
     }
 
     public String watchdogRemoveMessage() {
-        return plugin.getConfig().getString("punish.watchdog.remove-message", "&eA player has been removed from your game.");
+        return announcementString("remove-message", "&7A player has been removed from your game.");
     }
 
     public String punishCmdTemp() {

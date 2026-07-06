@@ -66,6 +66,7 @@ public final class CombatRewind {
         double max = 0.0D;
         TrackedEntity.PositionSnapshot best = null;
         int considered = 0;
+        java.util.List<TrackedEntity.PositionSnapshot> bracketSnaps = new java.util.ArrayList<TrackedEntity.PositionSnapshot>();
 
         boolean haveAck = lastAcked >= 0L;
         for (TrackedEntity.PositionSnapshot s : snapshots) {
@@ -79,6 +80,7 @@ public final class CombatRewind {
             if (!inBracket) continue;
 
             considered++;
+            bracketSnaps.add(s);
             double d = boxDistance(plugin, eyeX, eyeY, eyeZ, s.x, s.y, s.z, s.width, s.height, false);
             if (d < min) {
                 min = d;
@@ -87,6 +89,17 @@ public final class CombatRewind {
             if (d > max) {
                 max = d;
             }
+        }
+
+        // GrimAC ReachInterpolationData analogue: the true on-screen position can fall BETWEEN two
+        // discrete per-tick snapshots, so also test interpolated sub-positions across each consecutive
+        // in-bracket pair (living entities interpolate over ~3 steps). This only ever lowers the rewound
+        // distance — it adds leniency for fast-moving / high-ping targets, never a new flag.
+        if (best != null && bracketSnaps.size() >= 2
+                && plugin.getConfig().getBoolean("combat-engine.interpolation-enabled", true)) {
+            int steps = Math.max(1, plugin.getConfig().getInt("combat-engine.interpolation-steps", 3));
+            double interp = interpolatedMinDistance(plugin, eyeX, eyeY, eyeZ, bracketSnaps, steps);
+            if (interp < min) min = interp;
         }
 
         if (best == null) {
@@ -241,6 +254,33 @@ public final class CombatRewind {
      * Minimum distance from the eye point to the entity's expanded AABB. Mirrors
      * {@link CombatUtil#distanceToHitbox} with symmetric vanilla combat expansion.
      */
+    /**
+     * Minimum eye-&gt;hitbox distance across positions interpolated BETWEEN consecutive in-bracket
+     * snapshots (GrimAC ReachInterpolationData analogue). Only the interior fractions are sampled —
+     * the snapshot endpoints are already scanned discretely — so this can only lower the rewound
+     * distance, adding leniency for targets moving between server ticks.
+     */
+    private static double interpolatedMinDistance(VezAntiCheat plugin, double eyeX, double eyeY, double eyeZ,
+                                                  java.util.List<TrackedEntity.PositionSnapshot> snaps, int steps) {
+        snaps.sort(java.util.Comparator.comparingLong(s -> s.sequence));
+        double min = Double.MAX_VALUE;
+        for (int i = 0; i + 1 < snaps.size(); i++) {
+            TrackedEntity.PositionSnapshot a = snaps.get(i);
+            TrackedEntity.PositionSnapshot b = snaps.get(i + 1);
+            for (int k = 1; k < steps; k++) {
+                double t = k / (double) steps;
+                double x = a.x + (b.x - a.x) * t;
+                double y = a.y + (b.y - a.y) * t;
+                double z = a.z + (b.z - a.z) * t;
+                double w = a.width + (b.width - a.width) * t;
+                double h = a.height + (b.height - a.height) * t;
+                double d = boxDistance(plugin, eyeX, eyeY, eyeZ, x, y, z, w, h, false);
+                if (d < min) min = d;
+            }
+        }
+        return min;
+    }
+
     private static double boxDistance(VezAntiCheat plugin,
                                       double eyeX, double eyeY, double eyeZ,
                                       double x, double y, double z, double width, double height,

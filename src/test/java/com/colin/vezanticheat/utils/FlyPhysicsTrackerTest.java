@@ -2,7 +2,9 @@ package com.colin.vezanticheat.utils;
 
 import com.colin.vezanticheat.data.PlayerData;
 import com.colin.vezanticheat.engine.EngineResult;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 import org.junit.Test;
 
@@ -10,6 +12,8 @@ import java.util.UUID;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class FlyPhysicsTrackerTest {
 
@@ -56,6 +60,31 @@ public class FlyPhysicsTrackerTest {
         data.setLastVelocityTime(5000L);
         EngineResult er = airResult(0.45D, 0.08D);
         assertTrue(FlyPhysicsTracker.isBurstExempt(null, data, er, 5200L, 700L));
+    }
+
+    @Test
+    public void vanillaJumpChainSkipsFlyCheckPastOldShortWindow() {
+        PlayerData data = new PlayerData(UUID.randomUUID());
+        long nowMs = 40_000L;
+        data.setLastJumpTime(nowMs - 650L);
+        data.setEngineAirborneTicks(9);
+
+        Player player = mock(Player.class);
+        when(player.getGameMode()).thenReturn(GameMode.SURVIVAL);
+        when(player.getAllowFlight()).thenReturn(false);
+        when(player.isFlying()).thenReturn(false);
+
+        EngineResult er = EngineResult.builder()
+                .checked(true)
+                .actual(new Vector(0.20D, -0.14D, 0.0D))
+                .offset(0.07D)
+                .horizontalOffset(0.02D)
+                .verticalOffset(0.03D)
+                .clientGround(false)
+                .predictedOnGround(false)
+                .build();
+
+        assertTrue(FlyPhysicsTracker.shouldSkipMovementFlyCheck(player, data, er, nowMs, null));
     }
 
     @Test

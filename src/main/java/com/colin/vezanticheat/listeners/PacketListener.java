@@ -176,6 +176,7 @@ public class PacketListener extends PacketListenerAbstract {
                 d.recordRotationSample(yaw, pitch);
                 d.setCameraRotation(yaw, pitch);
                 d.setLastRotationPacket(now);
+                d.noteDedicatedRotationPacket(now);
                 tierChecks.onRotation(p, d, yaw, pitch);
             } else if (packetLoc != null) {
                 d.setCameraRotation(packetLoc.getYaw(), packetLoc.getPitch());
@@ -184,7 +185,9 @@ public class PacketListener extends PacketListenerAbstract {
             // Client ground state
             d.setLastClientGround(clientGround, now);
 
-            if (combatHandler != null && plugin.getConfig().getBoolean("combat-analyzer.enabled", true)) {
+            if (combatHandler != null && plugin.tierCfg().enabled()
+                    && plugin.getConfig().getBoolean("combat.aim-heuristics-enabled", false)
+                    && plugin.getConfig().getBoolean("combat-analyzer.enabled", true)) {
                 combatHandler.onFlyingPacket(
                         p, d, packetLoc, positionIncluded, isLook || isPositionLook, clientGround, now);
             }
@@ -211,6 +214,7 @@ public class PacketListener extends PacketListenerAbstract {
 
             // Position tracking
             if (positionIncluded && packetLoc != null) {
+                d.notePositionPacketOrder(now);
                 d.badPackets().notePositionPacket(now);
                 // Bucket by the real server tick (from the 1-tick TransactionTracker task) rather than
                 // wall-clock/50, which mis-buckets under lag and can split or merge a single tick.
@@ -247,6 +251,10 @@ public class PacketListener extends PacketListenerAbstract {
                 } else {
                     d.badPackets().clearPositionlessFlyingStreak();
                 }
+                // BadPacketTracker windows are movement-packet windows, not just position-packet
+                // windows. Stationary 1.8 clients can send flying/look packets without coordinates;
+                // reset action counts here so old attacks/places do not leak into later combat.
+                d.badPackets().resetWindow(now);
             }
 
             // Scaffold rotation sample
@@ -317,15 +325,9 @@ public class PacketListener extends PacketListenerAbstract {
             int entityId = wrapper.getEntityId();
             boolean attack = (wrapper.getAction() == WrapperPlayClientInteractEntity.InteractAction.ATTACK);
 
-            Entity target = null;
-            if (p.getWorld() != null) {
-                for (Entity entity : p.getWorld().getEntities()) {
-                    if (entity.getEntityId() == entityId) {
-                        target = entity;
-                        break;
-                    }
-                }
-            }
+            // O(1) lookup from the main-thread-rebuilt index; iterating world entities
+            // here (Netty thread) raced the main thread and cost O(entities) per attack.
+            Entity target = plugin.entityIndex() != null ? plugin.entityIndex().get(entityId) : null;
 
             d.setLastPacketInteract(entityId, attack);
             if (attack) {
@@ -346,6 +348,7 @@ public class PacketListener extends PacketListenerAbstract {
 
             d.setLastUseEntity(target, attack, dist, attackEye, swingDelta, now);
             if (attack) {
+                d.noteAttackPacketOrder(now);
                 com.colin.vezanticheat.utils.UseItemTracker.reconcileMeleeAttack(p, d, now);
             }
             tierChecks.onInteractEntity(p, d, entityId, attack, target);
@@ -354,7 +357,7 @@ public class PacketListener extends PacketListenerAbstract {
             // position the client actually saw (transaction-bracketed), with legacy fallback.
             final Entity combatTarget = target;
             final int combatEntityId = entityId;
-            if (attack && plugin.getConfig().getBoolean("combat-engine.enabled", true)) {
+            if (attack && plugin.tierCfg().enabled() && plugin.getConfig().getBoolean("combat-engine.enabled", true)) {
                 safeStage("combat-engine", () -> {
                     PlayerData targetData = (combatTarget instanceof Player)
                             ? plugin.data().get((Player) combatTarget) : null;
@@ -368,6 +371,8 @@ public class PacketListener extends PacketListenerAbstract {
 
             if (attack) {
                 if (combatHandler != null && target instanceof Player
+                        && plugin.tierCfg().enabled()
+                        && plugin.getConfig().getBoolean("combat.aim-heuristics-enabled", false)
                         && plugin.isCombatAnalysisEnabled()) {
                     final Player combatTargetPlayer = (Player) target;
                     final boolean[] cancelCombat = {false};
@@ -384,6 +389,8 @@ public class PacketListener extends PacketListenerAbstract {
                 LagProfileUtil.handleAttack(plugin, p, d, now);
                 if (target != null) {
                     d.captureAttackRayContext(p, target, attackEye, now);
+                } else {
+                    d.setAttackRayContext(null);
                 }
                 tierChecks.onAttack(p, d);
                 if (d.isBlockCurrentAttackPacket()) {
@@ -435,6 +442,13 @@ public class PacketListener extends PacketListenerAbstract {
                     d.clearCurrentDigBlock();
                     return;
                 }
+            } else if (action == DiggingAction.FINISHED_DIGGING && block != null && block.getType() != Material.AIR) {
+                tierChecks.onBlockBreak(p, d, block);
+                if (d.isBlockCurrentDigPacket()) {
+                    event.setCancelled(true);
+                    d.clearCurrentDigBlock();
+                    return;
+                }
             }
             return;
         }
@@ -454,6 +468,29 @@ public class PacketListener extends PacketListenerAbstract {
             if (pos != null && p.getWorld() != null) {
                 againstLoc = new Location(p.getWorld(), pos.getX(), pos.getY(), pos.getZ());
                 againstBlock = p.getWorld().getBlockAt(pos.getX(), pos.getY(), pos.getZ());
+            }
+
+            org.bukkit.inventory.ItemStack hand = p.getItemInHand();
+            boolean itemUsePacket = faceId == 255 || faceId == -1
+                    || (pos != null && pos.getX() == -1 && pos.getY() == -1 && pos.getZ() == -1)
+                    || isRightClickUseItem(hand);
+            if (itemUsePacket) {
+                d.badPackets().noteUseItem();
+                if (com.colin.vezanticheat.utils.ItemUseMovementUtil.isEdible(hand)) {
+                    com.colin.vezanticheat.utils.ItemUseMovementUtil.beginEating(p, d, now);
+                } else if (hand != null && (hand.getType() == Material.BOW
+                        || hand.getType().name().endsWith("_SWORD"))) {
+                    // Only items with a genuine SUSTAINED right-click use (bow draw, sword block) engage the
+                    // compensated item-use state. Blocks (incl. air-clicks), axes, throwables and other
+                    // instant right-clicks send no RELEASE_USE_ITEM, so flagging them left useItemActive
+                    // stuck ON and false-flagged every later swing as "swing-while-using" (and dig-while-using).
+                    com.colin.vezanticheat.utils.UseItemTracker.noteUseItem(d, now);
+                    if (hand.getType().name().endsWith("_SWORD")) {
+                        d.setAutoBlockALastBlockStartMs(now);
+                    }
+                }
+                tierChecks.onUseItem(p, d);
+                return;
             }
 
             try {
@@ -493,15 +530,6 @@ public class PacketListener extends PacketListenerAbstract {
                 return;
             }
 
-            // Detect sword-blocking or eating: face=255/-1 with position (-1,-1,-1) indicates item use
-            if (faceId == 255 || faceId == -1 || (pos != null && pos.getX() == -1 && pos.getY() == -1 && pos.getZ() == -1)) {
-                org.bukkit.inventory.ItemStack hand = p.getItemInHand();
-                if (com.colin.vezanticheat.utils.ItemUseMovementUtil.isEdible(hand)) {
-                    com.colin.vezanticheat.utils.ItemUseMovementUtil.beginEating(p, d, now);
-                } else if (hand != null && hand.getType().name().endsWith("_SWORD")) {
-                    d.setAutoBlockALastBlockStartMs(now);
-                }
-            }
             return;
         }
 
@@ -533,6 +561,7 @@ public class PacketListener extends PacketListenerAbstract {
         }
 
         if (event.getPacketType() == PacketType.Play.Client.CLOSE_WINDOW) {
+            d.setInventoryOpen(false);
             tierChecks.onCloseInventory(p, d);
             return;
         }
@@ -540,7 +569,11 @@ public class PacketListener extends PacketListenerAbstract {
         if (event.getPacketType() == PacketType.Play.Client.CLICK_WINDOW) {
             d.clearCurrentWindowBlock();
             WrapperPlayClientClickWindow wrapper = new WrapperPlayClientClickWindow(event);
+            d.setInventoryOpen(true);
+            d.setLastInventoryAction(now);
+            d.recordInventoryClick(now, plugin.cfg().checkInt("InventoryB", "historySize", 12));
             tierChecks.onWindowClick(p, d, wrapper.getWindowId(), wrapper.getSlot());
+            tierChecks.onInventoryAction(p, d);
             if (d.isBlockCurrentWindowPacket()) {
                 event.setCancelled(true);
                 d.clearCurrentWindowBlock();
@@ -603,5 +636,14 @@ public class PacketListener extends PacketListenerAbstract {
             return sinceMove < 100L;
         }
         return true;
+    }
+
+    private boolean isRightClickUseItem(org.bukkit.inventory.ItemStack item) {
+        if (item == null || item.getType() == null || item.getType() == Material.AIR) return false;
+        Material type = item.getType();
+        if (type == Material.BOW || type.isEdible()) return true;
+        String name = type.name();
+        if (name.endsWith("_SWORD") || name.endsWith("_AXE")) return true;
+        return !type.isBlock();
     }
 }

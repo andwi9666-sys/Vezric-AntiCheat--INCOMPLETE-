@@ -24,6 +24,9 @@ public final class MitigationPolicy {
     public void maybeSetback(VezAntiCheat plugin, org.bukkit.entity.Player player, PlayerData data,
                              CheckTier tier, String checkName, String debug) {
         if (player == null || data == null || tier == null) return;
+        // Invariant: combat checks must NEVER trigger a movement setback — they enforce via packet-drop +
+        // the punitive snap in CombatMitigationPolicy. Guard here regardless of tier.
+        if (CombatMitigationPolicy.isCombatPlayerHitCheck(plugin, checkName)) return;
         if (tier == CheckTier.CHARACTERISTICS || tier == CheckTier.PRISM) return;
         if (FallArcTracker.shouldSuppressLegitFallSetback(plugin, data, System.currentTimeMillis())) return;
 

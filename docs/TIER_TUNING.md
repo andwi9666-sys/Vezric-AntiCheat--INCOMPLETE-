@@ -1,4 +1,30 @@
-# VezAntiCheat v1.1.0 — shipped patches and competitive tuning
+# Perplexion AntiCheat — tier tuning reference (1.2.0)
+
+## 1.2.0 tuning changes (false-positive hardening)
+
+All 1.2.0 threshold changes loosen or add evidence requirements — none tighten:
+
+| Key | 1.1.x | 1.2.0 | Why |
+|-----|-------|-------|-----|
+| `PrismBadPacketsA.nanStrikesToFlag` (new) | insta-flag | 2 strikes / 30s | one corrupt packet must never flag |
+| `PrismBadPacketsB.bufferToFlag` | 6 | 7 | fast-network packet bursts |
+| `PrismBadPacketsB.minNoRotationMs` | 180 | 220 | same |
+| `PrismScaffoldA.maxPitchRange` | 4.0 | 3.25 | precise godbridge pitch-holds |
+| `PrismScaffoldA.maxTimingCv` | 0.08 | 0.07 | stricter AND-condition = fewer FPs |
+| `PrismScaffoldB.maxBehindDot` (new key) | -0.50 code default | -0.62 | breezily strafe placements |
+| `PrismScaffoldD.maxBehindDot` (new key) | -0.55 code default | -0.68 | same |
+| `exempt.velocity-ms` | 450 | 500 | high-ping knockback tails |
+| `exempt.ping-scaling.*` (new) | — | factor 0.5, cap 150ms | grace windows scale with ping |
+| `PrismAutoClick*.maxTrackedCps` | 15.0 | **kept 15.0** | exemption bound — raising it evaluates legit butterfly clickers |
+| `PrismAutoClick*.miningSwingWindowMs` (new) | world raytrace | 1500 | dig-packet mining detection (shadow-soak before trusting) |
+
+Bedrock players additionally get `compat.bedrock.*` exemptions (aim checks off,
+scaffold buffers ×1.5, reach +0.05). Punishment behavior is governed by
+`punish.safety-mode` — see PROFILE_RECOMMENDATIONS.md.
+
+---
+
+# v1.1.0 reference (historical — commands below now use /perplexion; /perplexion remains an alias)
 
 Release tags: **`v1.0.0-hardened`** @ `ae140d2`, **`v1.1.0`** @ `d44019c`
 
@@ -6,17 +32,17 @@ Release tags: **`v1.0.0-hardened`** @ `ae140d2`, **`v1.1.0`** @ `d44019c`
 
 | Tier | File | Default ban VL | Role |
 |------|------|----------------|------|
-| CHARACTERISTICS | `plugins/VezAntiCheat/tiers/characteristics.yml` | 25 | Behavioral heuristics (fast ban) |
+| CHARACTERISTICS | `plugins/Perplexion/tiers/characteristics.yml` | 25 | Behavioral heuristics (fast ban) |
 | PRISM | `tiers/prism.yml` | 40 | Packet structure + geometry |
 | SIMULATION | `tiers/simulation.yml` | 90 | Engine sub-signals |
 | PREDICTION | `tiers/prediction.yml` | 150 | Full Grim offset (most lenient) |
 
 ## Commands
 
-- `/vez status` — TPS, perf metrics, license/update line
-- `/vez profile lenient|balanced|aggressive` — apply bundled profile (merge-over-defaults)
-- `/vez tune <CheckName> <key> [value]` — live tune tier keys
-- `/vez reload` — reload config + tiers; clears check buffers (VL store persists)
+- `/perplexion status` — TPS, perf metrics, license/update line
+- `/perplexion profile lenient|balanced|aggressive` — apply bundled profile (merge-over-defaults)
+- `/perplexion tune <CheckName> <key> [value]` — live tune tier keys
+- `/perplexion reload` — reload config + tiers; clears check buffers (VL store persists)
 
 ## Check inventory (v1.1.0)
 
@@ -33,7 +59,7 @@ Release tags: **`v1.0.0-hardened`** @ `ae140d2`, **`v1.1.0`** @ `d44019c`
 **Recommended profile:** `aggressive`
 
 ```
-/vez profile aggressive
+/perplexion profile aggressive
 ```
 
 See [competitive-tuning.md](competitive-tuning.md) for shadow → enable workflow.
@@ -70,13 +96,13 @@ Set `shadow: true` on any tier check to collect flags without ban. Recommended s
 | RT1-003/004 | Per-window exemption caps for combat-grace and block-change | `PlayerData.java`, `MovementCheckRunner.java`, `engine.exemption-caps` |
 | RT2-004 | Close-range silent aim: s8 required-rotation + boosted s5/s6/s7 below 1.2 blocks | `CharSilentAim.java` |
 | RT5-002 | Vehicle speed envelope while mounted | `PredictionVehicle.java`, `VehicleMovementUtil.java` |
-| RT6-002 | `Check.clearAll()` on `/vez reload` | `Check.java`, `TierCheckManager.java` |
+| RT6-002 | `Check.clearAll()` on `/perplexion reload` | `Check.java`, `TierCheckManager.java` |
 
 **Tests:** 350 JUnit methods including `ExemptionCapTest`, `VehicleMovementUtilTest`, `ConfigProfileManagerMergeTest`.
 
 ## Config profiles
 
-`/vez profile` merges bundled YAML over jar `config.yml` defaults (license, vehicle, exemption-caps never dropped).
+`/perplexion profile` merges bundled YAML over jar `config.yml` defaults (license, vehicle, exemption-caps never dropped).
 
 Profiles include v1.1 keys: `engine.exemption-caps`, `engine.vehicle`, `license`, `diagnostics`, `updates`, `combat-mitigation`.
 
@@ -86,7 +112,7 @@ Profiles include v1.1 keys: `engine.exemption-caps`, `engine.vehicle`, `license`
 |----|------|--------|
 | RT3-004 | Packet-order (attack before position) | **Monitor** — patch only if staging reproduces |
 | RT4-003 | VL persists across reload (`CheckVLStore`) | By design |
-| RT4-003 | Quit/rejoin VL vs buffer asymmetry | Staff `/vez clear` for reset |
+| RT4-003 | Quit/rejoin VL vs buffer asymmetry | Staff `/perplexion clear` for reset |
 
 ## Lag gates
 

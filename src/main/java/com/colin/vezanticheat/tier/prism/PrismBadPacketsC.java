@@ -20,43 +20,83 @@ public final class PrismBadPacketsC extends PrismBadPacketCheck {
         long freshness = plugin.tierCfg().checkLong(name(), "attackFreshnessMs", 150L);
         if (now - data.getLastUseEntityTime() > freshness) return;
 
-        long swingDelta = data.getLastAttackSwingDeltaMs();
-        long hardThreshold = plugin.tierCfg().checkLong(name(), "hardSwingDeltaMs", 120L);
-        long lenientThreshold = plugin.tierCfg().checkLong(name(), "lenientSwingDeltaMs", 220L);
-        int bufferToFlag = plugin.tierCfg().checkInt(name(), "bufferToFlag", 4);
+        resolvePending(p, data, now, false);
 
-        long lastSwing = data.getLastArmSwingPacket();
-        if (lastSwing > 0L && now - lastSwing <= lenientThreshold) {
-            decayLetterBuffer(data, 1);
-            decay(p, 0.35D);
+        long attackMs = data.getLastUseEntityTime();
+        if (hasMatchingSwing(data, attackMs, now)) {
+            markClean(p, data);
             return;
         }
 
-        if (swingDelta != Long.MAX_VALUE && swingDelta <= hardThreshold) {
-            decayLetterBuffer(data, 1);
-            decay(p, 0.35D);
+        data.badPackets().setPendingNoSwingAttack(attackMs, data.getLastPacketInteractEntityId());
+    }
+
+    @Override
+    public void onArmSwing(Player p, PlayerData data) {
+        if (p == null || data == null) return;
+        long pending = data.badPackets().pendingNoSwingAttackMs();
+        if (pending <= 0L) return;
+
+        long now = System.currentTimeMillis();
+        long postWindow = plugin.tierCfg().checkLong(name(), "postAttackSwingMs", 180L);
+        if (now >= pending && now - pending <= postWindow) {
+            data.badPackets().clearPendingNoSwingAttack();
+            markClean(p, data);
+        }
+    }
+
+    @Override
+    public void onFlyingPacket(Player p, PlayerData data, long nowMs) {
+        if (p == null || data == null || data.isTeleportExempt()) return;
+        resolvePending(p, data, nowMs, true);
+    }
+
+    private void resolvePending(Player p, PlayerData data, long now, boolean forceExpired) {
+        long pending = data.badPackets().pendingNoSwingAttackMs();
+        if (pending <= 0L) return;
+
+        if (hasMatchingSwing(data, pending, now)) {
+            data.badPackets().clearPendingNoSwingAttack();
+            markClean(p, data);
             return;
         }
 
-        long combatMs = plugin.getConfig().getLong("engine.combat-movement-grace-ms", 450L);
-        if (data.getLastUseEntityTime() > 0L && (now - data.getLastUseEntityTime()) <= combatMs
-                && swingDelta != Long.MAX_VALUE && swingDelta <= lenientThreshold) {
-            decayLetterBuffer(data, 1);
-            decay(p, 0.35D);
+        long minResolveMs = forceExpired
+                ? plugin.tierCfg().checkLong(name(), "postAttackSwingMs", 180L)
+                : plugin.tierCfg().checkLong(name(), "minPendingResolveMs", 45L);
+        if (now - pending < minResolveMs) {
             return;
         }
 
-        int gain = swingDelta == Long.MAX_VALUE ? 2 : 1;
-        int buf = incrementLetterBuffer(p, data, gain, bufferToFlag,
-                "no-swing delta=" + (swingDelta == Long.MAX_VALUE ? "NEVER" : swingDelta + "ms"));
+        data.badPackets().clearPendingNoSwingAttack();
+        int bufferToFlag = plugin.tierCfg().checkInt(name(), "bufferToFlag", 6);
+        int buf = incrementLetterBuffer(p, data, 1, bufferToFlag,
+                "no-swing unresolved age=" + (now - pending) + "ms");
 
-        if (swingDelta == Long.MAX_VALUE && buf >= Math.max(3, bufferToFlag)) {
-            blockAttack(p, data, "no-swing NEVER buf=" + buf);
+        if (buf >= bufferToFlag && plugin.tierCfg().checkBoolean(name(), "cancelNoSwingOnFlag", false)) {
+            blockAttack(p, data, "no-swing unresolved buf=" + buf);
         }
 
         if (buf >= bufferToFlag) {
             flagLetter(p, data, plugin.tierCfg().checkDouble(name(), "failVl", 1.2D),
-                    "attack-no-swing delta=" + (swingDelta == Long.MAX_VALUE ? "NEVER" : swingDelta + "ms"));
+                    "attack-no-swing unresolved age=" + (now - pending) + "ms");
         }
+    }
+
+    private boolean hasMatchingSwing(PlayerData data, long attackMs, long now) {
+        long lastSwing = data.getLastArmSwingPacket();
+        if (lastSwing <= 0L || attackMs <= 0L) return false;
+
+        long preWindow = plugin.tierCfg().checkLong(name(), "lenientSwingDeltaMs", 220L);
+        long postWindow = plugin.tierCfg().checkLong(name(), "postAttackSwingMs", 180L);
+        if (lastSwing <= attackMs && attackMs - lastSwing <= preWindow) {
+            return true;
+        }
+        return lastSwing > attackMs && lastSwing - attackMs <= postWindow && lastSwing <= now;
+    }
+
+    private void markClean(Player p, PlayerData data) {
+        decayLetterBuffer(data, 1);
+        decay(p, 0.35D);
     }
 }

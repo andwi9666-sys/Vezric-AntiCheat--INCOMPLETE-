@@ -88,11 +88,18 @@ public class PlayerData {
     private final com.colin.vezanticheat.engine.MovementPlayer movementPlayer = new com.colin.vezanticheat.engine.MovementPlayer();
     private final com.colin.vezanticheat.engine.CompensatedWorld compensatedWorld = new com.colin.vezanticheat.engine.CompensatedWorld();
     private com.colin.vezanticheat.engine.EngineResult lastEngineResult;
+    private final com.colin.vezanticheat.movement.PlayerMovementState movementState =
+            new com.colin.vezanticheat.movement.PlayerMovementState();
+    private com.colin.vezanticheat.movement.SimulationResult lastSimulationResult;
+    private final Deque<com.colin.vezanticheat.movement.DebugTrace> movementDebugTraces =
+            new ArrayDeque<com.colin.vezanticheat.movement.DebugTrace>();
     /** Accumulated movement offset advantage (Grim-style); decays each tick, triggers setback at threshold. */
     private double engineOffsetAdvantage;
     private boolean pendingSetback;
     private long pendingSetbackSinceMs;
     private org.bukkit.Location pendingSetbackTarget;
+    /** Transaction sequence whose ack confirms the client processed this setback teleport (-1 = none). */
+    private long pendingSetbackTxSeq = -1L;
     private boolean engineInitialized;
 
     // Grim-style combat engine state: transaction ping rewind + packet-synced entity positions.
@@ -121,15 +128,33 @@ public class PlayerData {
     // because surrounding chunks were not loaded. Used to force a resync setback if it persists.
     private int engineUnverifiedTicks;
 
-    // GLOBAL VL (optional)
-    private int totalVl;
+    // GLOBAL VL (optional). Atomic: incremented from Netty threads, read by
+    // main-thread punishment evaluation — a plain += would lose updates.
+    private final java.util.concurrent.atomic.AtomicInteger totalVl =
+            new java.util.concurrent.atomic.AtomicInteger(0);
 
     // PER-CHECK VL
     private final Map<String, Double> checkVl = new ConcurrentHashMap<>();
 
+    // BadPacketsA NaN/Infinite rotation strikes (two-strike rule, see PrismBadPacketsA)
+    private int nanRotationStrikes;
+    private long lastNanRotationMs;
+
+    // Ping-scaled exemption bonus (exempt.ping-scaling): refreshed ~1/s from the move
+    // listener, added to every mark*Exempt window. Volatile: written main thread,
+    // read by Netty-thread mark calls.
+    private volatile long exemptPingBonusMs;
+    private long lastExemptPingUpdateMs;
+
+    // Bedrock (Geyser/Floodgate) verdict cache: -1 unknown, 0 java, 1 bedrock.
+    private volatile int bedrockVerdict = -1;
+
     // For velocity checks (keep)
     private Vector lastVelocity;
     private long lastVelocityTime;
+    /** Until this time, KnockbackHandler ignores outgoing EntityVelocity — the anticheat's own setback
+     * correction velocity must NOT be re-ingested as a real knockback (self-feedback guard). */
+    private long suppressVelocityCaptureUntilMs;
 
     // For click checks
     private final Deque<Long> armSwings = new ArrayDeque<>();
@@ -142,11 +167,19 @@ public class PlayerData {
     private float priorYaw, priorPitch;
     private float lastRotationYawDelta;
     private float lastRotationPitchDelta;
+    /** Previous packet's RAW (unwrapped) yaw delta — used by PrismAimModulo360 (yaw-wrap detection). */
+    private float aimModuloLastRawYawDelta;
     private long lastRotationPacket;
     private org.bukkit.entity.Entity lastTargetEntity;
     private AttackRayContext attackRayContext;
     private double killAuraASnapRatio;
     private double partialKbRatio;
+    private long lastAttackPacketMs;
+    private long lastDedicatedRotationPacketMs;
+    private boolean attackBeforeLastPosition;
+    private int kbRatioSustainTicks;
+    private long lastKbFlagMs;
+    private String lastKbFlagSource;
     private int inventoryMoveCount;
     private int vehicleSpeedViolationStreak;
     private int engineBlockChangeLenienceUsed;
@@ -436,6 +469,12 @@ public class PlayerData {
     private int killAuraARotOnNonAttackTicks;
     private int killAuraANoRotOnNonAttackTicks;
     private long killAuraACorrelationWindowStart;
+
+    // Silent-aim rewrite: transient-fingerprint state (SilentAimAnalyzer + CharSilentAim fusion)
+    private final java.util.Deque<Double> silentSnapRestoreScores = new java.util.ArrayDeque<Double>();
+    private double silentLastSnapRestoreScore;
+    private double silentLastHitboxSnapVelDegPerSec;
+    private final java.util.Deque<Double> silentCenterLockJitter = new java.util.ArrayDeque<Double>();
     // AutoBlockA — timing pattern state
     private long autoBlockALastBlockStartMs;
     private final Deque<Long> autoBlockABlockAttackIntervals = new ArrayDeque<Long>();
@@ -657,6 +696,21 @@ public class PlayerData {
     public com.colin.vezanticheat.engine.CompensatedWorld getCompensatedWorld() { return compensatedWorld; }
     public com.colin.vezanticheat.engine.EngineResult getLastEngineResult() { return lastEngineResult; }
     public void setLastEngineResult(com.colin.vezanticheat.engine.EngineResult result) { this.lastEngineResult = result; }
+    public com.colin.vezanticheat.movement.PlayerMovementState getMovementState() { return movementState; }
+    public com.colin.vezanticheat.movement.SimulationResult getLastSimulationResult() { return lastSimulationResult; }
+    public void setLastSimulationResult(com.colin.vezanticheat.movement.SimulationResult result) {
+        this.lastSimulationResult = result;
+    }
+    public Deque<com.colin.vezanticheat.movement.DebugTrace> getMovementDebugTraces() {
+        return movementDebugTraces;
+    }
+    public void recordMovementDebugTrace(com.colin.vezanticheat.movement.DebugTrace trace) {
+        if (trace == null) return;
+        movementDebugTraces.addLast(trace);
+        while (movementDebugTraces.size() > 100) {
+            movementDebugTraces.removeFirst();
+        }
+    }
     public double getEngineOffsetAdvantage() { return engineOffsetAdvantage; }
     public void setEngineOffsetAdvantage(double engineOffsetAdvantage) { this.engineOffsetAdvantage = engineOffsetAdvantage; }
 
@@ -685,10 +739,13 @@ public class PlayerData {
     public void setPendingSetbackSinceMs(long pendingSetbackSinceMs) { this.pendingSetbackSinceMs = pendingSetbackSinceMs; }
     public org.bukkit.Location getPendingSetbackTarget() { return pendingSetbackTarget; }
     public void setPendingSetbackTarget(org.bukkit.Location pendingSetbackTarget) { this.pendingSetbackTarget = pendingSetbackTarget; }
+    public long getPendingSetbackTxSeq() { return pendingSetbackTxSeq; }
+    public void setPendingSetbackTxSeq(long pendingSetbackTxSeq) { this.pendingSetbackTxSeq = pendingSetbackTxSeq; }
     public void clearPendingSetback() {
         this.pendingSetback = false;
         this.pendingSetbackSinceMs = 0L;
         this.pendingSetbackTarget = null;
+        this.pendingSetbackTxSeq = -1L;
     }
     public boolean isEngineInitialized() { return engineInitialized; }
     public void setEngineInitialized(boolean v) { this.engineInitialized = v; }
@@ -746,9 +803,29 @@ public class PlayerData {
     }
     public void setVerbose(int verbose) { this.verbose = verbose; }
 
-    public int getTotalVl() { return totalVl; }
-    public void addTotalVl(int amount) { this.totalVl += amount; }
-    public void reduceTotalVl(int amount) { this.totalVl = Math.max(0, this.totalVl - amount); }
+    public int getBedrockVerdict() { return bedrockVerdict; }
+    public void setBedrockVerdict(int v) { this.bedrockVerdict = v; }
+
+    public long getExemptPingBonusMs() { return exemptPingBonusMs; }
+    public void setExemptPingBonusMs(long v) { this.exemptPingBonusMs = Math.max(0L, v); }
+    public long getLastExemptPingUpdateMs() { return lastExemptPingUpdateMs; }
+    public void setLastExemptPingUpdateMs(long v) { this.lastExemptPingUpdateMs = v; }
+
+    public int getNanRotationStrikes() { return nanRotationStrikes; }
+    public void setNanRotationStrikes(int v) { this.nanRotationStrikes = v; }
+    public long getLastNanRotationMs() { return lastNanRotationMs; }
+    public void setLastNanRotationMs(long v) { this.lastNanRotationMs = v; }
+
+    public int getTotalVl() { return totalVl.get(); }
+    public void addTotalVl(int amount) { totalVl.addAndGet(amount); }
+    public void reduceTotalVl(int amount) {
+        int current;
+        int next;
+        do {
+            current = totalVl.get();
+            next = Math.max(0, current - amount);
+        } while (!totalVl.compareAndSet(current, next));
+    }
 
     public double getCheckVl(String check) {
         Double v = checkVl.get(check);
@@ -775,6 +852,8 @@ public class PlayerData {
 
     public long getLastVelocityTime() { return lastVelocityTime; }
     public void setLastVelocityTime(long lastVelocityTime) { this.lastVelocityTime = lastVelocityTime; }
+    public long getSuppressVelocityCaptureUntilMs() { return suppressVelocityCaptureUntilMs; }
+    public void setSuppressVelocityCaptureUntilMs(long until) { this.suppressVelocityCaptureUntilMs = until; }
 
     public Vector getLastExplosionVelocity() { return lastExplosionVelocity; }
     public void setLastExplosionVelocity(Vector lastExplosionVelocity) { this.lastExplosionVelocity = lastExplosionVelocity; }
@@ -827,6 +906,49 @@ public class PlayerData {
     public void setKillAuraASnapRatio(double killAuraASnapRatio) { this.killAuraASnapRatio = killAuraASnapRatio; }
     public double getPartialKbRatio() { return partialKbRatio; }
     public void setPartialKbRatio(double partialKbRatio) { this.partialKbRatio = partialKbRatio; }
+
+    public long getLastAttackPacketMs() { return lastAttackPacketMs; }
+    public boolean isAttackBeforeLastPosition() { return attackBeforeLastPosition; }
+
+    public void noteAttackPacketOrder(long nowMs) {
+        this.lastAttackPacketMs = nowMs;
+        this.attackBeforeLastPosition = false;
+    }
+
+    public void notePositionPacketOrder(long nowMs) {
+        long previousPositionMs = badPackets().lastPositionPacketMs();
+        if (lastAttackPacketMs > previousPositionMs
+                && lastAttackPacketMs <= nowMs
+                && (nowMs - lastAttackPacketMs) <= 220L) {
+            this.attackBeforeLastPosition = true;
+        }
+    }
+
+    public void noteDedicatedRotationPacket(long nowMs) {
+        this.lastDedicatedRotationPacketMs = nowMs;
+    }
+
+    public long getLastDedicatedRotationPacketMs() { return lastDedicatedRotationPacketMs; }
+
+    public void noteKbRatioBelowThreshold(boolean below) {
+        if (below) kbRatioSustainTicks++;
+        else kbRatioSustainTicks = 0;
+    }
+
+    public int getKbRatioSustainTicks() { return kbRatioSustainTicks; }
+
+    /** Returns true when this check may emit a knockback flag (dedupes overlapping tiers). */
+    public boolean tryClaimKnockbackFlag(String source, long nowMs, long suppressMs) {
+        if (source == null) source = "";
+        if (lastKbFlagMs > 0L && (nowMs - lastKbFlagMs) < suppressMs) {
+            return false;
+        }
+        lastKbFlagMs = nowMs;
+        lastKbFlagSource = source;
+        return true;
+    }
+
+    public String getLastKbFlagSource() { return lastKbFlagSource; }
     public int getInventoryMoveCount() { return inventoryMoveCount; }
     public void setInventoryMoveCount(int inventoryMoveCount) { this.inventoryMoveCount = inventoryMoveCount; }
 
@@ -880,6 +1002,8 @@ public class PlayerData {
     public float getPriorPitch() { return priorPitch; }
     public float getLastRotationYawDelta() { return lastRotationYawDelta; }
     public float getLastRotationPitchDelta() { return lastRotationPitchDelta; }
+    public float getAimModuloLastRawYawDelta() { return aimModuloLastRawYawDelta; }
+    public void setAimModuloLastRawYawDelta(float v) { this.aimModuloLastRawYawDelta = v; }
 
     public void setLastRot(float yaw, float pitch) {
         this.lastYaw = yaw;
@@ -1331,19 +1455,19 @@ public class PlayerData {
 
     public void markTeleportExempt(long ms) {
         long now = System.currentTimeMillis();
-        teleportExemptUntilMs = Math.max(teleportExemptUntilMs, now + Math.max(0L, ms));
+        teleportExemptUntilMs = Math.max(teleportExemptUntilMs, now + Math.max(0L, ms) + exemptPingBonusMs);
     }
     public void markVelocityExempt(long ms) {
         long now = System.currentTimeMillis();
-        velocityExemptUntilMs = Math.max(velocityExemptUntilMs, now + Math.max(0L, ms));
+        velocityExemptUntilMs = Math.max(velocityExemptUntilMs, now + Math.max(0L, ms) + exemptPingBonusMs);
     }
     public void markBlockStateExempt(long ms) {
         long now = System.currentTimeMillis();
-        blockStateExemptUntilMs = Math.max(blockStateExemptUntilMs, now + Math.max(0L, ms));
+        blockStateExemptUntilMs = Math.max(blockStateExemptUntilMs, now + Math.max(0L, ms) + exemptPingBonusMs);
     }
     public void markPotionExempt(long ms) {
         long now = System.currentTimeMillis();
-        potionExemptUntilMs = Math.max(potionExemptUntilMs, now + Math.max(0L, ms));
+        potionExemptUntilMs = Math.max(potionExemptUntilMs, now + Math.max(0L, ms) + exemptPingBonusMs);
     }
     public void markInventoryMomentumExempt(long ms) {
         long now = System.currentTimeMillis();
@@ -1718,6 +1842,14 @@ public class PlayerData {
     public void setKillAuraARotOnNonAttackTicks(int v) { this.killAuraARotOnNonAttackTicks = v; }
     public int getKillAuraANoRotOnNonAttackTicks() { return killAuraANoRotOnNonAttackTicks; }
     public void setKillAuraANoRotOnNonAttackTicks(int v) { this.killAuraANoRotOnNonAttackTicks = v; }
+
+    // Silent-aim rewrite: transient-fingerprint accessors
+    public java.util.Deque<Double> getSilentSnapRestoreScores() { return silentSnapRestoreScores; }
+    public double getSilentLastSnapRestoreScore() { return silentLastSnapRestoreScore; }
+    public void setSilentLastSnapRestoreScore(double v) { this.silentLastSnapRestoreScore = Math.max(0.0D, Math.min(1.0D, v)); }
+    public double getSilentLastHitboxSnapVelDegPerSec() { return silentLastHitboxSnapVelDegPerSec; }
+    public void setSilentLastHitboxSnapVelDegPerSec(double v) { this.silentLastHitboxSnapVelDegPerSec = Math.max(0.0D, v); }
+    public java.util.Deque<Double> getSilentCenterLockJitter() { return silentCenterLockJitter; }
     public long getKillAuraACorrelationWindowStart() { return killAuraACorrelationWindowStart; }
     public void setKillAuraACorrelationWindowStart(long v) { this.killAuraACorrelationWindowStart = v; }
 

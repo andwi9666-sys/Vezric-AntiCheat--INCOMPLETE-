@@ -51,6 +51,14 @@ public abstract class TierCheck {
     }
 
     public boolean enabled() {
+        // Aim heuristics (CharAim* / CharSilentAim) default ON — the silent-aim rewrite detects the
+        // injected-rotation fingerprint and requires multiple independent signals before flagging.
+        // Enforcement is still governed by punish.safety-mode and each check's combatMitigation/shadow
+        // flags, so detection-on does NOT auto-ban. Set combat.aim-heuristics-enabled: false to disable.
+        if (isAimCharacteristicCheck()
+                && !plugin.getConfig().getBoolean("combat.aim-heuristics-enabled", true)) {
+            return false;
+        }
         return plugin.tierCfg().checkEnabled(name);
     }
 
@@ -163,6 +171,13 @@ public abstract class TierCheck {
         if (!enabled()) return;
         if (PlayerData.bypass(p)) return;
 
+        // Bedrock touch/controller aim breaks Java mouse heuristics (GCD lattice,
+        // snap/reset patterns) — drop aim-characteristic flags for Geyser players.
+        if (isAimCharacteristicCheck()
+                && com.colin.vezanticheat.utils.ClientCompatUtil.isAimExempt(plugin, p, data)) {
+            return;
+        }
+
         if (plugin.tierCfg().gateByLag()) {
             double tps = plugin.tps() != null ? plugin.tps().getTps() : 20.0D;
             if (tps < plugin.tierCfg().minTps()) return;
@@ -180,6 +195,11 @@ public abstract class TierCheck {
             double maxBoost = plugin.getConfig().getDouble("lag.profile.max-boost", 0.75D);
             add *= (1.0D + Math.min(maxBoost, lagScore * boostFactor));
             debug = LagProfileUtil.appendDebug(debug, plugin, p, data, now);
+        }
+
+        if (plugin.flagStats() != null) {
+            plugin.flagStats().record(name, p.getUniqueId(), PingUtil.getPing(p),
+                    plugin.tps() != null ? plugin.tps().getTps() : -1.0D, shadowEnabled());
         }
 
         if (shadowEnabled()) {
@@ -201,18 +221,33 @@ public abstract class TierCheck {
             plugin.diagnostics().record(p.getUniqueId(), name, "flag", debug);
         }
 
-        plugin.tierChecks().flagToStaff(p, publicName(), tier, (int) Math.round(checkVl), debug);
-        verboseFlag(p, Math.round(checkVl), debug);
+        // punish.safety-mode decides how far a flag may act: silent records only,
+        // alerts-only adds staff chat, mitigation adds setbacks, banwave/instant add bans.
+        com.colin.vezanticheat.punishment.PunishmentMode mode = plugin.cfg().punishSafetyMode();
+
+        if (mode.alertsEnabled()) {
+            plugin.tierChecks().flagToStaff(p, publicName(), tier, (int) Math.round(checkVl), debug);
+            verboseFlag(p, Math.round(checkVl), debug);
+        }
 
         String decayKey = bufferKey(p.getUniqueId());
         LAST_FLAG_MS.put(decayKey, now);
         LAST_DECAY_MS.put(decayKey, now);
 
-        if (applyMitigation) {
+        if (applyMitigation && mode.mitigationEnabled()) {
             applyFlagMitigation(p, data, debug, PrismMitigationPolicy.Confidence.MODERATE);
         }
 
         punisher().evaluateBan(p, data, this, checkVl, debug);
+    }
+
+    private boolean isAimCharacteristicCheck() {
+        return name.startsWith("CharAim") || name.equals("CharSilentAim");
+    }
+
+    /** Bedrock-scaled flag buffer for scaffold checks (compat.bedrock.scaffold-buffer-multiplier). */
+    protected int bedrockAdjustedBuffer(Player p, PlayerData data, int base) {
+        return com.colin.vezanticheat.utils.ClientCompatUtil.scaledScaffoldBuffer(plugin, p, data, base);
     }
 
     private void applyFlagMitigation(Player p, PlayerData data, String debug,

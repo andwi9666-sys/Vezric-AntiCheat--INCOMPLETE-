@@ -20,6 +20,8 @@ public final class PredictionState {
     private long lastKnownGoodTimeMs;
     private Location lastValidGroundSetbackLocation;
     private long lastValidGroundSetbackTimeMs;
+    /** Post-tick (friction-applied) velocity at the last-valid-ground anchor — GrimAC afterTickFriction. */
+    private org.bukkit.util.Vector lastKnownGoodVelocity;
     private long lastSetbackMs;
     private boolean setbackPending;
     private String lastSetbackReason;
@@ -116,6 +118,14 @@ public final class PredictionState {
 
     public long getLastValidGroundSetbackTimeMs() {
         return lastValidGroundSetbackTimeMs;
+    }
+
+    public org.bukkit.util.Vector getLastKnownGoodVelocity() {
+        return lastKnownGoodVelocity == null ? null : lastKnownGoodVelocity.clone();
+    }
+
+    public void setLastKnownGoodVelocity(org.bukkit.util.Vector velocity) {
+        this.lastKnownGoodVelocity = velocity == null ? null : velocity.clone();
     }
 
     public long getLastSetbackMs() {

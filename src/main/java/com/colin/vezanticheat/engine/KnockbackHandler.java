@@ -54,6 +54,10 @@ public final class KnockbackHandler extends PacketListenerAbstract {
         PlayerData data = dataManager.get(player);
         if (data == null) return;
 
+        // Ignore the anticheat's OWN setback correction velocity — re-ingesting it as a real knockback
+        // creates a self-feedback setback loop (legit players flung forward every velocity window).
+        if (System.currentTimeMillis() < data.getSuppressVelocityCaptureUntilMs()) return;
+
         try {
             if (event.getPacketType() == PacketType.Play.Server.ENTITY_VELOCITY) {
                 WrapperPlayServerEntityVelocity wrapper = new WrapperPlayServerEntityVelocity(event);

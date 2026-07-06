@@ -20,10 +20,15 @@ public final class CommandRegistrar {
     public static boolean bind(VezAntiCheat plugin, VezCommand vez, AlertsCommand alerts,
                             FlagsCommand flags, BanwaveCommand banwave) {
         boolean ok = true;
-        ok &= bindOne(plugin, "vez", vez);
+        ok &= bindOne(plugin, "perplexion", vez);
         ok &= bindOne(plugin, "alerts", alerts);
         ok &= bindOne(plugin, "flags", flags);
         ok &= bindOne(plugin, "banwave", banwave);
+
+        PluginCommand main = plugin.getCommand("perplexion");
+        if (main != null) {
+            main.setTabCompleter(new VezTabCompleter(plugin));
+        }
         if (ok) {
             plugin.getLogger().info("All Vez commands bound successfully.");
         } else {
@@ -54,7 +59,7 @@ public final class CommandRegistrar {
                     return delegate.onCommand(sender, cmd, label, args);
                 } catch (Throwable t) {
                     plugin.getLogger().log(Level.SEVERE, "Command /" + name + " failed", t);
-                    sender.sendMessage(ChatColor.RED + "[Vez] Command failed. See console for details.");
+                    sender.sendMessage(ChatColor.RED + "[Perplexion] Command failed. See console for details.");
                     return true;
                 }
             }

@@ -107,6 +107,9 @@ public class VezAntiCheat extends JavaPlugin {
     private com.colin.vezanticheat.combat.CombatAnalysisSettings combatSettings;
     private com.colin.vezanticheat.combat.CombatStaffAlerter combatAlerter;
     private ClientBrandListener clientBrandListener;
+    private com.colin.vezanticheat.utils.EntityIndex entityIndex; // netty-safe entity-id lookup
+    private com.colin.vezanticheat.utils.FlagStatsTracker flagStatsTracker; // rolling flag analytics
+    private com.colin.vezanticheat.ai.RecommendationEngine recommendationEngine; // config advisor
     private volatile boolean packetHooksRegistered;
     private int vlDecayTaskId = -1; // repeating scheduled global VL decay sweep
     private com.colin.vezanticheat.utils.PerfSampler perfSampler;
@@ -139,7 +142,7 @@ public class VezAntiCheat extends JavaPlugin {
 
         // Config management with auto-regeneration on version bump
         saveDefaultConfig();
-        int currentConfigVersion = 17; // v17: v1.1.0 license/perf/profile keys
+        int currentConfigVersion = 18; // v18: 1.2.0 Perplexion rebrand, safety-mode, compat + ping-scaling keys
         if (getConfig().getInt("config-version", 0) < currentConfigVersion) {
             getLogger().info("Config outdated (version " + getConfig().getInt("config-version", 0)
                     + " < " + currentConfigVersion + "). Regenerating with new defaults.");
@@ -173,6 +176,10 @@ public class VezAntiCheat extends JavaPlugin {
         this.tpsMonitor = new TpsMonitor();
         this.tpsMonitor.start(this);
         this.dataManager = new PlayerDataManager(this);
+        this.entityIndex = new com.colin.vezanticheat.utils.EntityIndex(this);
+        this.entityIndex.start();
+        this.flagStatsTracker = new com.colin.vezanticheat.utils.FlagStatsTracker();
+        this.recommendationEngine = new com.colin.vezanticheat.ai.RecommendationEngine(this);
         this.punishmentManager = new PunishmentManager(this);
         this.punishmentManager.startAnnouncementTask();
         this.banwaveManager = new BanwaveManager(this);
@@ -271,13 +278,14 @@ public class VezAntiCheat extends JavaPlugin {
 
         startDecayTask();
 
-        getLogger().info("VezAntiCheat enabled. PacketEvents=true tierChecks="
+        getLogger().info("Perplexion enabled. PacketEvents=true tierChecks="
                 + tierCheckManager.count()
                 + " packetHooks=" + packetHooksRegistered
+                + " safetyMode=" + configManager.punishSafetyMode().name()
                 + (vulcanCompat.active ? " vulcanCoexist=true" : ""));
         if (!packetHooksRegistered) {
             getLogger().warning("Anticheat checks are inactive until packet hooks register. "
-                    + "Run /vez status and perform a full server restart (not /plugman reload).");
+                    + "Run /perplexion status and perform a full server restart (not /plugman reload).");
         }
     }
 
@@ -285,7 +293,7 @@ public class VezAntiCheat extends JavaPlugin {
         this.packetHooksRegistered = false;
         if (likelyReload) {
             getLogger().severe("Packet hook init failed — likely caused by /plugman reload or /reload.");
-            getLogger().severe("Stop the server completely and start it again. Do NOT hot-reload VezAntiCheat.");
+            getLogger().severe("Stop the server completely and start it again. Do NOT hot-reload Perplexion.");
         } else {
             getLogger().severe("Packet hook init failed — anticheat checks will not run until this is fixed.");
         }
@@ -344,6 +352,9 @@ public class VezAntiCheat extends JavaPlugin {
         if (transactionTracker != null) transactionTracker.unhook();
         if (entityTracker != null) entityTracker.unhook();
         if (clientBrandListener != null) clientBrandListener.unregisterChannels();
+        if (entityIndex != null) entityIndex.stop();
+        if (punishmentManager != null) punishmentManager.flush();
+        if (banwaveManager != null) banwaveManager.flush();
         if (dataManager != null) dataManager.shutdown();
     }
 
@@ -379,6 +390,9 @@ public class VezAntiCheat extends JavaPlugin {
 
     // Short accessors (for internal use — reduces boilerplate in checks)
     public PlayerDataManager data() { return dataManager; }
+    public com.colin.vezanticheat.utils.EntityIndex entityIndex() { return entityIndex; }
+    public com.colin.vezanticheat.utils.FlagStatsTracker flagStats() { return flagStatsTracker; }
+    public com.colin.vezanticheat.ai.RecommendationEngine recommendations() { return recommendationEngine; }
     public TierCheckManager tierChecks() { return tierCheckManager; }
     public TierConfigManager tierCfg() { return tierConfigManager; }
     public PunishmentManager punish() { return punishmentManager; }

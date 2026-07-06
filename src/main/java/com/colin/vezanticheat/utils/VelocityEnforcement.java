@@ -24,7 +24,10 @@ public final class VelocityEnforcement {
     public static void onVelocityFlag(VezAntiCheat plugin, Player player, PlayerData data,
                                       VelocityEvaluationResult result, String checkName) {
         if (plugin == null || player == null || data == null) return;
-        if (!isAnimateEnabled(plugin, checkName)) return;
+        // SAFETY KILL-SWITCH: anti-knockback corrections (Grim setback OR animated replay) are disabled by
+        // default — they were teleporting players on legit knockback. Velocity checks still alert (VL).
+        // Re-enable with prediction.setback.enforce: true once verified false-positive free.
+        if (!plugin.getConfig().getBoolean("prediction.setback.enforce", false)) return;
 
         Vector knockback = data.getLastVelocity();
         if (knockback == null || knockback.lengthSquared() < 0.001D) {
@@ -38,6 +41,16 @@ public final class VelocityEnforcement {
             knockback = result.snapshot.velocity.clone();
         }
         if (knockback == null) return;
+
+        // Unified GrimAC velocity correction: set the player back to the last-known-good anchor and
+        // re-apply the expected knockback (as carriedOverride) — the SAME Grim setback the movement checks
+        // use, so the ignored knockback is enforced. The legacy animated replay below is opt-out only
+        // (set velocity-engine.setback.use-grim-setback: false to fall back to it).
+        if (plugin.getConfig().getBoolean("velocity-engine.setback.use-grim-setback", true)) {
+            MovementEnforcement.executeSetback(plugin, player, data, "antikb-" + checkName, knockback.clone());
+            return;
+        }
+        if (!isAnimateEnabled(plugin, checkName)) return;
 
         List<com.colin.vezanticheat.velocity.PredictedTick> predicted = Collections.emptyList();
         VelocitySnapshot snapshot = null;

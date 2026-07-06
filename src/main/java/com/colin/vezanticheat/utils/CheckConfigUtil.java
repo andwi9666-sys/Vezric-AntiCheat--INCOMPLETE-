@@ -40,13 +40,14 @@ public final class CheckConfigUtil {
         mapCharToPrism("CharInventoryA", "PrismInventoryA");
         mapCharToPrism("CharInventoryB", "PrismInventoryB");
         mapCharToPrism("CharInventoryC", "PrismInventoryC");
-        mapCharToPrism("PrismReachA", "PrismInteractionLegality");
-        mapCharToPrism("PrismReachB", "PrismInteractionLegality");
-        mapCharToPrism("PrismReachC", "PrismInteractionLegality");
         mapCharToPrism("PrismHitboxA", "PrismInteractionLegality");
         mapCharToPrism("PrismHitboxB", "PrismInteractionLegality");
         mapCharToPrism("PrismBackTrack", "PrismInteractionLegality");
         mapCharToPrism("PrismLagRange", "PrismInteractionLegality");
+        mapCharToPrism("PrismNoRotationA", "PrismInteractionLegality");
+        mapCharToPrism("PrismNoRotationB", "PrismInteractionLegality");
+        mapCharToPrism("PrismNoRotationC", "PrismInteractionLegality");
+        mapCharToPrism("PrismRotationRay", "PrismInteractionLegality");
     }
 
     private static void mapCharToPrism(String oldName, String newName) {

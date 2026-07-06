@@ -51,6 +51,10 @@ public final class PredictionVelocity extends AbstractMovementTierCheck {
                 + " " + result.debugSummary;
 
         if (blatant) {
+            if (!data.tryClaimKnockbackFlag(name(), nowMs, cfgLong("kbDedupeMs", 350L))) {
+                cool(p, 0.7D);
+                return;
+            }
             VelocityEnforcement.onVelocityFlag(plugin, p, data, result, name());
             fail(p, data, cfgDouble("failVl", 1.0D), debug);
             resetBuffer(p);
@@ -58,6 +62,10 @@ public final class PredictionVelocity extends AbstractMovementTierCheck {
         }
 
         if (flagBuffered(p, data, gain, debug)) {
+            if (!data.tryClaimKnockbackFlag(name(), nowMs, cfgLong("kbDedupeMs", 350L))) {
+                resetBuffer(p);
+                return;
+            }
             VelocityEnforcement.onVelocityFlag(plugin, p, data, result, name());
         }
     }

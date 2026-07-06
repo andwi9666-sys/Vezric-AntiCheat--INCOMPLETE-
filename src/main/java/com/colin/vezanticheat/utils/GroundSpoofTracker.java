@@ -111,6 +111,7 @@ public final class GroundSpoofTracker {
 
         NoFallUtil.Context ctx = NoFallUtil.analyze(plugin, p, data);
         if (ctx != null && ctx.softLanding) return true;
+        if (plugin != null && FallArcTracker.isInFallArcWindow(plugin, data, nowMs)) return true;
 
         long jumpWindow = plugin != null
                 ? plugin.getConfig().getLong("movement-analysis.jump-phase-window-ms", 420L) : 420L;

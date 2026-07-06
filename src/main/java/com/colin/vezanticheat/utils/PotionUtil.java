@@ -50,18 +50,18 @@ public final class PotionUtil {
         return jumpBoostLevel(player) > 0;
     }
 
-    /** Extra horizontal offset allowance while a speed effect is active. */
+    /**
+     * Small residual horizontal-offset cushion while a Speed effect is active.
+     *
+     * <p>The movement simulator now models the Speed potion directly through the movement-speed attribute
+     * (`0.1 * (1 + 0.2 * level)`), so predicted motion already accounts for the boost. This is only a tiny
+     * float/rounding cushion — not the bulk speed compensation it used to be (which double-counted the
+     * effect and let speed cheats hide underneath it).</p>
+     */
     public static double speedOffsetAllowance(Player player) {
         int level = effectiveSpeedLevel(player);
         if (level <= 0) return 0.0D;
-        double base = 0.028D * level;
-        if (player != null && player.isSprinting()) {
-            base += 0.068D * level;
-        }
-        if (player != null && player.isOnGround()) {
-            base += 0.018D * level;
-        }
-        return base;
+        return 0.012D * level;
     }
 
     /** Allowance when walk speed is above vanilla (lobby /speed, attribute plugins). */

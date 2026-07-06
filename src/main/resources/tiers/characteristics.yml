@@ -14,8 +14,16 @@ CharSilentAim:
   tier: CHARACTERISTICS
   enabled: true
   punishVl: 25
-  bufferToFlag: 3
+  bufferToFlag: 4
   combatMitigation: true
+  closeRangeBypass: 1.2
+  closeRangeTaper: 1.0
+  closeRangeSignalBoost: 1.40
+  blatantThreshold: 0.70
+  cancelThreshold: 0.85
+  # Enforce per punish.safety-mode (server is set to banwave). Set back to true for a
+  # silent observe-first soak period (detect + risk-score log only, no alerts/setbacks/bans).
+  shadow: false
 
 CharAimSnap:
   tier: CHARACTERISTICS
@@ -31,12 +39,24 @@ CharAimReset:
   bufferToFlag: 3
   combatMitigation: true
 
+CharAimSensitivity:
+  tier: CHARACTERISTICS
+  enabled: true
+  punishVl: 25
+  bufferToFlag: 5  # Conservative: needs sustained non-vanilla rotation math across several attacks
+  combatMitigation: false  # Recovered-sensitivity flag — alerts only until tuned on your playerbase
+  minSignificantSamples: 15  # GCD samples that must conform before a verdict (Grim SIGNIFICANT_SAMPLES)
+  suspicionThreshold: 0.5  # Min suspicion (recovered sensitivity outside [0,1]) to count toward the buffer
+  vl: 1.0
+
 CharAimCorrelation:
   tier: CHARACTERISTICS
   enabled: true
   punishVl: 25
   bufferToFlag: 3
   combatMitigation: true
+  minSampleWeight: 0.25
+  shadow: true
 
 CharAimCenter:
   tier: CHARACTERISTICS
@@ -53,10 +73,12 @@ CharTimerLegacy:
 
 CharVelocityPattern:
   tier: CHARACTERISTICS
-  enabled: true
+  enabled: false
+  shadow: true
   punishVl: 25
   bufferToFlag: 3
   animateOnFlag: true
+  kbDedupeMs: 350
 
 CharCombatTiming:
   tier: CHARACTERISTICS
@@ -100,3 +122,4 @@ CharCriticalsC:
   enabled: true
   punishVl: 25
   bufferToFlag: 3
+  minSamples: 18

@@ -18,7 +18,7 @@ import java.util.UUID;
 /** Polar-style staff flag history GUI (54 slots, tooltip metadata on hover). */
 public final class FlagsGui {
 
-    public static final String TITLE = ChatColor.DARK_PURPLE + "WatchDog Flags";
+    public static final String TITLE = ChatColor.DARK_PURPLE + "Perplexion Flags";
 
     private static final Set<UUID> OPEN = new HashSet<UUID>();
 

@@ -1,22 +1,22 @@
-# Aggressive profile: faster confidence growth, tighter cleanliness windows, lower tolerance on repeated clean anomalies.
-prefix: '&6[VezAC] &r'
+# Aggressive profile: competitive servers with low ping and stable TPS, with active staff review. Faster flagging and quicker banwaves; not for high-ping playerbases.
+prefix: '&0&l[PE&7RPLEX&8ION] &r'
 anticheat:
   enabled: true
 flags:
-  format: '{prefix}&e{player} &7failed &c{check} &7(&fVL {vl}&7)'
+  format: '{prefix}&c{player} &7failed &4{check} &7[{tier}] (&4VL {vl}&7)'
   staff-default-on: true
 messages:
   no-permission: '{prefix}&cNo permission.'
   flags-on: '{prefix}&aAlerts enabled.'
   flags-off: '{prefix}&cAlerts disabled.'
-  enabled: '{prefix}&aVezAntiCheat enabled.'
-  disabled: '{prefix}&cVezAntiCheat disabled.'
+  enabled: '{prefix}&aPerplexion enabled.'
+  disabled: '{prefix}&cPerplexion disabled.'
   reload: '{prefix}&aReloaded config.'
 
 lag:
   enable-gates: true
-  max-ping: 250
-  min-tps: 18.5
+  max-ping: 350
+  min-tps: 17.5
 
 knockback-profile:
   horizontal: 0.4
@@ -26,12 +26,18 @@ knockback-profile:
   extra-vertical: 0.1
 
 exempt:
-  teleport-ms: 900
-  velocity-ms: 450
-  blockstate-ms: 350
-  potion-ms: 500
+  teleport-ms: 700
+  velocity-ms: 350
+  blockstate-ms: 450
+  potion-ms: 550
+  ping-scaling:
+    enabled: true
+    factor: 0.5
+    cap-ms: 100
 
 combat-analysis:
+  hitbox-expansion:
+    full: 0.08
   attack-window-ms: 325
   rewind-base-ms: 70
   rewind-ping-factor: 0.25
@@ -118,10 +124,17 @@ scaffold-analysis:
 
 punish:
   enabled: true
-  ban-vl: 25
+  ban-vl: 18
+  safety-mode: banwave
+  lag-gate:
+    enabled: true
+    retry-delay-ms: 120000
   mode: CHECK
   execution:
     type: BANWAVE
+    hybrid:
+      enabled: true
+      min-flags: 5
     auto-banwave:
       enabled: true
       interval-seconds: 30
@@ -130,7 +143,7 @@ punish:
       batch-size: 8
   evidence:
     mark-score: 7.0
-    queue-score: 10.5
+    queue-score: 10.0
     recent-window-seconds: 600
     multi-check-bonus: 1.75
     triple-check-bonus: 2.5
@@ -209,11 +222,11 @@ punish:
       duration: 365d
     '4':
       type: PERM
-  watchdog:
+  announcements:
     reason: Cheating through the use of unfair game advantages.
-    appeal-url: https://www.hypixel.net/appeal
-    broadcast: '&c[VezAC] has banned {player} for cheating!'
-    remove-message: '&eA player has been removed from your game.'
+    appeal-url: https://your-server.example/appeal
+    broadcast: '&4Perplexion &7has removed &c{player} &7for cheating.'
+    remove-message: '&7A player has been removed from your game.'
   reasons:
     REACH: Cheating
     BACKTRACK: Cheating
@@ -931,3 +944,14 @@ vl:
   decay-per-second: 0.12
   global-decay-per-second: 0.03
   decay-min-interval-ms: 250
+
+# 1.2.0 client compatibility (see config.yml for full documentation)
+compat:
+  bedrock:
+    enabled: true
+    exempt-aim-checks: true
+    scaffold-buffer-multiplier: 1.25
+    reach-extra: 0.05
+  via:
+    enabled: true
+    modern-client-leniency: true

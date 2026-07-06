@@ -15,52 +15,79 @@ defaults:
   setbackDelayMs: 5
   # Player-hit combat checks use combat-mitigation in config.yml (drop hits + punitive setback)
 
+PrismAimModulo360:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 3  # Deterministic yaw-wrap signature; needs only a few hits
+  setbackEnabled: false  # Rotation anomaly — alert, do not setback movement
+  cancelOnFlag: false
+  setbackOnFlag: false
+  wrapDeltaMin: 320.0  # Raw yaw jump (deg) indicating a % 360 wrap (Grim AimModulo360)
+  priorDeltaMax: 30.0  # Previous packet must have been a calm rotation
+  vl: 1.0
+
+PrismAimDuplicate:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 6  # Conservative: redundant identical look packets can be bursty
+  setbackEnabled: false  # Alerts only by default until validated on your playerbase
+  cancelOnFlag: false
+  setbackOnFlag: false
+  positionGuardMs: 60  # Skip look packets within this window of a position move (straight-line walk)
+  combatWindowMs: 1500  # Only evaluate within this long after an attack
+  vl: 1.0
+
 PrismInteractionLegality:
   tier: PRISM
   enabled: true
   punishVl: 40
   bufferToFlag: 3
   combatMitigation: true
-  maxReach: 3.1
+  maxReach: 3.05
   reachMargin: 0.0
   vanillaExpansion: 0.1
   cancelMissDistance: 0.10
   graceThreshold: 0.04
   cancelOnFlag: true
-  blatantReachOver: 0.35
-  hitboxMinSamples: 8
-  missRatioThreshold: 0.50
+  blatantReachOver: 0.30
+  hitboxMinSamples: 6
+  missRatioThreshold: 0.45
   hitboxViolationsToFlag: 2
-  lagrangeMinConfidence: 1.8
-  # Absorbs: PrismReachA/B/C, PrismHitboxA/B, PrismBackTrack, PrismLagRange
-
-PrismAutoClickD:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 4
-  minWindowSwings: 30
-  minBandOccupancy: 0.72
-  maxExtremeHitRatio: 0.08
-  minTrackedCps: 8.0
-  maxTrackedCps: 15.0
+  lagrangeMinConfidence: 2.0
+  backtrackMaxStaleMs: 190
+  noRotationMaxAgeMs: 165
+  rotationRayMinAngle: 12.0
+  # Absorbs (tune here, not ghost keys): PrismReachA/B/C, PrismHitboxA/B,
+  # PrismBackTrack, PrismLagRange, PrismNoRotationA/B/C, PrismRotationRay
 
 PrismScaffoldA:
   tier: PRISM
   enabled: true
+  # Scaffold -- silent placement-legality & line-of-sight detector. Diagnostics/verbose only;
+  # never cancels, setbacks, or prevents bridging.
   punishVl: 40
-  bufferToFlag: 4
-  minPerfectStreak: 9
-  maxTimingCv: 0.08
-  maxPitchRange: 4.0
-  maxSpreadMs: 75
-  cancelPlaceOnFlag: false
+  shadow: true
+  setbackEnabled: false
+  cancelOnFlag: false
   setbackOnFlag: false
-  minStreak: 7
-  maxCv: 0.06
-  maxPitchCv: 6.0
-  maxAverageMs: 175
-  maxSpreadMs: 75
+  verboseEvidence: true
+  debug: false
+  maxSamples: 24
+  minBridgeSequence: 4
+  minSamples: 7
+  bufferToFlag: 8
+  bufferDecay: 0.55
+  flagCooldownMs: 2500
+  # raytrace / line-of-sight (tolerant: detects not-looking-at-the-face, not imperfect aim)
+  rayTraceReach: 4.65
+  rayTraceStep: 0.05
+  maxAngleError: 28.0
+  hardAngleError: 45.0
+  # placement legality
+  supportHistoryMs: 1500
+  repeatedRelativeStd: 0.035
 
 PrismFastBreakA:
   tier: PRISM
@@ -80,6 +107,16 @@ PrismFastBreakB:
   instantBlockMinAvgMs: 80.0
   bufferToFlag: 2
 
+PrismNukerA:
+  tier: PRISM
+  enabled: true
+  punishVl: 40
+  bufferToFlag: 2
+  maxReach: 5.2
+  bedMaxReach: 4.6
+  breakWindowMs: 650
+  maxBreaksPerWindow: 4
+
 PrismBlockSight:
   tier: PRISM
   enabled: true
@@ -87,44 +124,71 @@ PrismBlockSight:
   bufferToFlag: 3
   minLookDot: 0.55
 
-PrismAutoClickA:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 4
-
-PrismAutoClickB:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-
-PrismAutoClickC:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 4
-
 PrismScaffoldB:
   tier: PRISM
   enabled: true
+  # Silent Eagle sneak-at-edge automation detector.
   punishVl: 40
+  shadow: true
+  setbackEnabled: false
+  cancelOnFlag: false
+  setbackOnFlag: false
+  verboseEvidence: true
+  debug: false
+  bufferToFlag: 6
+  bufferDecay: 0.45
+  flagCooldownMs: 3000
+  eagleMinCycles: 7
+  edgeMeanMax: 0.075
+  edgeStdMax: 0.018
+  startStdMaxMs: 18.0
+  releaseStdMaxMs: 22.0
+  maxStartLeadMs: 550
+  maxReleaseDelayMs: 650
+  minSignals: 2
 
 PrismScaffoldC:
   tier: PRISM
   enabled: true
+  # LegitScaffold -- silent bridge-consistency detector. Diagnostics/verbose only; never cancels,
+  # setbacks, or prevents bridging. Strict against long-term robotic consistency, lenient on skill.
   punishVl: 40
+  shadow: true
+  setbackEnabled: false
+  cancelOnFlag: false
+  setbackOnFlag: false
+  verboseEvidence: true
+  debug: false
+  minSamples: 7
+  minBridgeSequence: 4
+  minCategoriesToFlag: 2
+  perfectPlacementAllowance: 2
+  bufferToFlag: 8
+  bufferDecay: 0.55
+  flagCooldownMs: 2500
+  # timing consistency
+  minPlaceIntervalMs: 45.0
+  maxPlaceIntervalMs: 650.0
+  maxTimingCv: 0.075
+  humanTimingCv: 0.13
+  maxTimingStdMs: 9.5
+  maxTimingSpreadMs: 28.0
+  # rotation consistency
+  maxPitchRange: 2.85
+  maxRotationStd: 1.15
+  minRotationDelta: 0.035
 
 PrismScaffoldD:
   tier: PRISM
-  enabled: true
-  punishVl: 40
+  enabled: false
+  retired: true
+  replacement: PrismScaffoldA
 
 PrismScaffoldE:
   tier: PRISM
-  enabled: true
-  punishVl: 40
-  supportHistoryMs: 350
+  enabled: false
+  retired: true
+  replacement: PrismScaffoldA
 
 PrismInventoryA:
   tier: PRISM
@@ -162,16 +226,20 @@ PrismBadPacketsA:
   punishVl: 40
   bufferToFlag: 5
   maxAbsPitch: 91.0
+  # NaN/infinite rotation needs nanStrikesToFlag occurrences inside nanStrikeWindowMs
+  # before flagging — one corrupt packet from a proxy/bad network must never flag alone.
+  nanStrikesToFlag: 2
+  nanStrikeWindowMs: 30000
   # Invalid rotation = NaN/infinite or pitch outside vanilla bounds. Yaw is cyclic (unwrapped OK).
 
 PrismBadPacketsB:
   tier: PRISM
   enabled: true
   punishVl: 40
-  bufferToFlag: 6
+  bufferToFlag: 7
   maxDuplicateIntervalMs: 3
   maxTinyIntervalMs: 8
-  minNoRotationMs: 180
+  minNoRotationMs: 220
   swingGraceMs: 350
   # Duplicate packet burst (ignores rotation-only and post-setback resync).
 
@@ -179,11 +247,14 @@ PrismBadPacketsC:
   tier: PRISM
   enabled: true
   punishVl: 40
-  bufferToFlag: 4
+  bufferToFlag: 6
   attackFreshnessMs: 150
   hardSwingDeltaMs: 120
   lenientSwingDeltaMs: 220
-  # Attack without arm swing; lenient threshold avoids spam-click melee false positives.
+  postAttackSwingMs: 180
+  minPendingResolveMs: 45
+  cancelNoSwingOnFlag: false
+  # Attack without arm swing; validation is deferred to allow same-tick post-attack animation ordering.
 
 PrismBadPacketsD:
   tier: PRISM
@@ -247,8 +318,11 @@ PrismBadPacketsL:
   tier: PRISM
   enabled: true
   punishVl: 40
-  bufferToFlag: 3
-  # Structural bad-packet validation L.
+  bufferToFlag: 8
+  minIndexedEntities: 2
+  nearbyEntityForgivenessRange: 6.0
+  cancelGhostAttackOnFlag: false
+  # Ghost attack validation; cache misses near real entities are treated as clean.
 
 PrismBadPacketsM:
   tier: PRISM
@@ -256,83 +330,6 @@ PrismBadPacketsM:
   punishVl: 40
   bufferToFlag: 3
   # Structural bad-packet validation M.
-
-PrismNoRotationA:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Stale look + off-FOV attack.
-
-PrismNoRotationB:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Impossible angle + stale rotation.
-
-PrismNoRotationC:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Attack outside transaction ack window.
-
-PrismRotationRay:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Eye-ray vs attack vector at packet yaw.
-
-PrismReachA:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Rewind reach primary.
-
-PrismReachB:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Rewind reach corroboration.
-
-PrismReachC:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Impossible-hit cancel pipeline.
-
-PrismHitboxA:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Ray miss despite hit A.
-
-PrismHitboxB:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Ray miss despite hit B.
-
-PrismBackTrack:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Entity snapshot age vs attack.
-
-PrismLagRange:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Outbound position staleness.
 
 PrismTransactionA:
   tier: PRISM
@@ -359,25 +356,28 @@ PrismSetbackAccept:
   rejectDistance: 2.5
   # Ignored S08 setback accept (requires large distance after grace).
 
-PrismInteractReach:
-  tier: PRISM
-  enabled: true
-  punishVl: 40
-  bufferToFlag: 3
-  # Structural interact distance.
-
 PrismPacketOrderA:
   tier: PRISM
   enabled: true
   punishVl: 40
   bufferToFlag: 3
-  # Tick/input/interact ordering A.
+  requirePositionBeforeAttack: true
+  maxPositionLeadMs: 30
+  attackFreshnessMs: 180
+  maxMoveAgeMs: 120
+  # Tick/input/interact ordering A (ATTACK_WITHOUT_MOVE).
 
 PrismPacketOrderB:
   tier: PRISM
   enabled: true
   punishVl: 40
   bufferToFlag: 3
+  maxRotationAgeMs: 145
+  requireBadAttackRay: true
+  cleanAttackAngle: 38.0
+  cleanAttackDot: 0.55
+  minBadAttackAngle: 50.0
+  maxBadAttackDot: 0.35
   # Tick/input/interact ordering B.
 
 PrismPacketOrderC:

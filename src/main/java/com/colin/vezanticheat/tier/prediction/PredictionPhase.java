@@ -38,15 +38,23 @@ public final class PredictionPhase extends AbstractMovementTierCheck {
             }
 
             double thr = cfgDouble("enginePhaseOffset", 0.10D);
-            boolean throughWall = (er.collisionX || er.collisionZ) && er.horizontalOffset > thr;
-            if (!throughWall) {
+            boolean horizontalWall = (er.collisionX || er.collisionZ) && er.horizontalOffset > thr;
+            double verticalThr = cfgDouble("engineVerticalPhaseOffset", 0.08D);
+            int minSolidOverlaps = cfgInt("minSolidOverlaps", 3);
+            int collisionAxes = (er.collisionX ? 1 : 0) + (er.collisionY ? 1 : 0) + (er.collisionZ ? 1 : 0);
+            boolean verticalWall = er.collisionY && er.verticalOffset > verticalThr
+                    && collisionAxes >= minSolidOverlaps;
+            if (!horizontalWall && !verticalWall) {
                 cool(p, 0.35D);
                 return;
             }
 
-            int gain = er.horizontalOffset > thr * 1.5D ? 2 : 1;
-            if (flagBuffered(p, data, gain,
-                    "throughWall hOff=" + r(er.horizontalOffset) + " " + er.debug)) {
+            int gain = horizontalWall && er.horizontalOffset > thr * 1.5D ? 2
+                    : verticalWall ? 2 : 1;
+            String phaseDebug = horizontalWall
+                    ? "throughWall hOff=" + r(er.horizontalOffset)
+                    : "verticalPhase vOff=" + r(er.verticalOffset) + " axes=" + collisionAxes;
+            if (flagBuffered(p, data, gain, phaseDebug + " " + er.debug)) {
                 predictionSetback(p, data, "simulation");
             }
             return;

@@ -44,18 +44,18 @@ engine.vehicle.buffer-to-flag: 3
 
 ### Shadow order (do not skip)
 
-1. `PrismRotationRay`, `PrismNoRotationA`, `PrismNoRotationB`, `PrismNoRotationC`  
-   - Pass: no FOV false positives at ping &lt; 120 ms during W-tap trades
-2. `PrismReachC`, `PrismInteractReach`  
+1. **`PrismInteractionLegality`** (absorbs reach, hitbox, backtrack, lag-range, no-rotation, rotation-ray)  
+   - Tune: `/vez tune PrismInteractionLegality maxReach 3.05`  
    - Pass: rewound AABB at 2.8–3.2 block trades; no cancel on legit edge hits
+2. `PrismInteractReach` — structural interact distance (separate from player-hit combat)
 3. `PrismPacketOrderA`–`D`  
-   - Watch for RT3-004; if attack-before-position bypass reproduces, file staging evidence
+   - RT3-004 fixed in v1.1.1 (attack-before-position no longer bypasses via combat grace)
 4. `PrismAutoClickA`–`D`  
-   - Legit competitive CPS band: 8–14 CPS; macro should flag within 30s
+   - Legit competitive CPS band: 8–15 CPS; macro should flag within 30s
 
 ### Enable combat checks
 
-Same shadow → enable flow. Tune `cancelAttack` on reach checks **only after** rotation/ray checks are clean.
+Same shadow → enable flow. Tune `cancelOnFlag` on **`PrismInteractionLegality`** only after packet-order checks are clean.
 
 ## Week 2–3 — Silent aim stack (CHARACTERISTICS) — enable last
 

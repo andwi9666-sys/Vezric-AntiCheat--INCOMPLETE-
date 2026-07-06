@@ -85,8 +85,8 @@ Run on a **1.8.8 Spigot/Paper + PacketEvents** test server before premium launch
 
 **Setup:**
 ```
-/vez profile aggressive
-/vez verbose on
+/perplexion profile aggressive
+/perplexion verbose on
 /flags
 ```
 
@@ -104,7 +104,7 @@ Record results in [`staging-results.md`](staging-results.md). Tuning workflow: [
 | 8 | Reach rewound AABB (2.8–3.2 blocks) | `CombatHitClassifierTest`, `CombatRewindNullSafetyTest` | _pending operator_ |
 | 9 | Legit ping sweep 20–180ms (lenient profile) | `CombatFalsePositiveGuardTest` | _pending operator_ |
 | 10 | Quit buffer purge | `CheckClearPlayerTest`, `SimulationSubCheckClearPlayerTest`, `TierCheckBufferLifecycleTest` | _pending operator_ |
-| 11 | `/vez reload` buffer flush | `Check.clearAll` + `TierCheck.clearAll` | _pending operator_ |
+| 11 | `/perplexion reload` buffer flush | `Check.clearAll` + `TierCheck.clearAll` | _pending operator_ |
 | 12 | Inventory-move silent aim signal | `CharSilentAimSignalsInventoryTest` | _pending operator_ |
 
 **Release gate (CI):** PASSED @ `d44019c` — `mvn clean package` green, **350** unit tests, jar at `target/VezAntiCheat-1.1.0.jar`.

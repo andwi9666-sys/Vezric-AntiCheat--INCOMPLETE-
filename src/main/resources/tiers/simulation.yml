@@ -33,10 +33,12 @@ SimulationKnockback:
   punishVl: 90
   failWeight: 0.5
   setbackEnabled: true
-  bufferToFlag: 5
+  bufferToFlag: 3
   failVl: 0.75
-  minKnockbackRatio: 0.55
+  minKnockbackRatio: 0.48
+  sustainTicks: 3
   threshold: 0.08
+  kbDedupeMs: 350
   animateOnFlag: true
 
 SimulationExplosion:

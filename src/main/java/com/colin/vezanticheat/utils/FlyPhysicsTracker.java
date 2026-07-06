@@ -140,9 +140,7 @@ public final class FlyPhysicsTracker {
         if (p.getAllowFlight() || p.isFlying()) return true;
         if (er.inWater || er.onClimbable || er.inWeb) return true;
 
-        long jumpWindow = plugin != null
-                ? plugin.getConfig().getLong("movement-analysis.jump-phase-window-ms", 420L) : 420L;
-        if (data.getLastJumpTime() > 0L && nowMs - data.getLastJumpTime() <= jumpWindow) {
+        if (MovementEnvelopeUtil.isLikelyVanillaJumpChain(plugin, p, data, er, nowMs, "PredictionFly")) {
             return true;
         }
         return false;
@@ -162,9 +160,7 @@ public final class FlyPhysicsTracker {
         if (er.onClimbable || er.inWater || er.inWeb) return true;
         if (er.entityPushOffset() > 0.0D) return true;
 
-        long jumpWindow = plugin != null
-                ? plugin.getConfig().getLong("movement-analysis.jump-phase-window-ms", 420L) : 420L;
-        return data.getLastJumpTime() > 0L && nowMs - data.getLastJumpTime() <= jumpWindow;
+        return MovementEnvelopeUtil.isLikelyVanillaJumpChain(plugin, null, data, er, nowMs, "PredictionFlyBurst");
     }
 
     public static int gravityViolationStreak(PlayerData data, int sampleSize, double errorThreshold) {

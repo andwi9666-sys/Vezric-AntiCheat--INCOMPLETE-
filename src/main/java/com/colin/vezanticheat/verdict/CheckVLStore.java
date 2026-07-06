@@ -12,11 +12,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CheckVLStore {
 
     private static final class Entry {
-        double vl;
-        long lastChangeMs;
-        long lastDecayMs;
-        boolean changeStamped;
-        boolean decayStamped;
+        // Written by Netty threads (flag VL adds) and the main thread (decay sweep);
+        // volatile guarantees visibility and atomic 64-bit reads under the JMM.
+        volatile double vl;
+        volatile long lastChangeMs;
+        volatile long lastDecayMs;
+        volatile boolean changeStamped;
+        volatile boolean decayStamped;
     }
 
     private final Map<UUID, Map<String, Entry>> byPlayer = new ConcurrentHashMap<UUID, Map<String, Entry>>();

@@ -1,4 +1,4 @@
-name: VezAntiCheat
+name: Perplexion
 version: '${project.version}'
 main: com.colin.vezanticheat.VezAntiCheat
 api-version: '1.8'
@@ -6,21 +6,21 @@ api-version: '1.8'
 depend: [packetevents]
 softdepend: [Vulcan, ProtocolLib, ProtocolSupport, ViaVersion, ViaBackwards, ViaRewind, Geyser-Spigot]
 commands:
-  vez:
-    description: Main VezAntiCheat command
-    usage: ''
-    aliases: [watchdog, wd]
+  perplexion:
+    description: Main Perplexion AntiCheat command
+    usage: /perplexion <status|profile|reload|checks|perf|trace|info|tune|recommendations|exportdebug|...>
+    aliases: [pe, vez]
   alerts:
     description: Toggle anticheat alerts
-    usage: ''
+    usage: /alerts
     permission: vez.staff
   flags:
-    description: Open Polar-style flag history or toggle alerts
-    usage: ''
+    description: Open flag history or toggle alerts
+    usage: /flags [player]
     permission: vez.staff
   banwave:
     description: Banwave management
-    usage: ''
+    usage: /banwave <status|run|clear|list>
     permission: vez.admin
 permissions:
   vez.admin:
@@ -30,11 +30,11 @@ permissions:
     description: Staff alerts access
     default: op
   watchdog.staff:
-    description: Staff combat analysis alerts and debug command
+    description: Legacy staff permission (honored for backward compatibility)
     default: op
   vez.bypass:
     description: Bypass all checks
     default: false
   watchdog.bypass:
-    description: Bypass all checks (Watchdog alias)
+    description: Legacy bypass permission (honored for backward compatibility)
     default: false

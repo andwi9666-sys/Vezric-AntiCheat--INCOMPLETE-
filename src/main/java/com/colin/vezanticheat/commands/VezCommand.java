@@ -43,13 +43,13 @@ public class VezCommand implements CommandExecutor {
     }
 
     private String pref() {
-        return c(plugin.getConfig().getString("prefix", "&6[Vez] &r"));
+        return c(plugin.getConfig().getString("prefix", "&0&l[PE&7RPLEX&8ION] &r"));
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(c("&6[VezAC] &eUsage: /vez <on|off|status|reload|profile|info|trace|tune|verbose|debug|announce|ai|combat>"));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &eUsage: /perplexion <status|checks|perf|recommendations|info|movement|trace|tune|exportdebug|profile|verbose|debug|reload|on|off|announce|ai|combat>"));
             return true;
         }
 
@@ -69,33 +69,35 @@ public class VezCommand implements CommandExecutor {
 
         if (sub.equals("status")) {
             boolean enabled = plugin.cfg().enabled();
-            sender.sendMessage(c("&6[VezAC] &eEnabled: &f" + enabled));
-            sender.sendMessage(c("&6[VezAC] &ePlugin loaded: &f" + plugin.isEnabled()));
-            sender.sendMessage(c("&6[VezAC] &ePacket hooks: &f" + plugin.packetHooksRegistered()));
-            sender.sendMessage(c("&6[VezAC] &ePacketEvents: &f" + (com.github.retrooper.packetevents.PacketEvents.getAPI() != null)));
-            sender.sendMessage(c("&6[VezAC] &eTier checks loaded: &f" + plugin.tierChecks().count()));
-            sender.sendMessage(c("&6[VezAC] &eArchitecture: &fPolar tiers (CHAR/PRISM/SIM/PRED)"));
-            sender.sendMessage(c("&6[VezAC] &eTPS: &f" + (plugin.tps() != null ? round2(plugin.tps().getTps()) : "20.0")));
-            sender.sendMessage(c("&6[VezAC] &eOnline: &f" + Bukkit.getOnlinePlayers().size()));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &eEnabled: &f" + enabled));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &ePlugin loaded: &f" + plugin.isEnabled()));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &ePacket hooks: &f" + plugin.packetHooksRegistered()));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &ePacketEvents: &f" + (com.github.retrooper.packetevents.PacketEvents.getAPI() != null)));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &eTier checks loaded: &f" + plugin.tierChecks().count()));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &eArchitecture: &fPolar tiers (CHAR/PRISM/SIM/PRED)"));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &ePunishment mode: &f"
+                    + plugin.cfg().punishSafetyMode().name().toLowerCase(java.util.Locale.ROOT).replace('_', '-')));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &eTPS: &f" + (plugin.tps() != null ? round2(plugin.tps().getTps()) : "20.0")));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &eOnline: &f" + Bukkit.getOnlinePlayers().size()));
             if (plugin.license() != null && plugin.getConfig().getBoolean("license.enabled", false)) {
-                sender.sendMessage(c("&6[VezAC] &eLicense: &f"
+                sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &eLicense: &f"
                         + (plugin.license().checksAllowed() ? "active/grace" : "expired")));
             }
             if (plugin.updates() != null) {
-                sender.sendMessage(c("&6[VezAC] &e" + plugin.updates().statusLine(plugin.getDescription().getVersion())));
+                sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &e" + plugin.updates().statusLine(plugin.getDescription().getVersion())));
             }
             PerfSampler perf = plugin.perf();
             if (perf != null) {
                 PerfSampler.Snapshot snap = perf.snapshot();
-                sender.sendMessage(c("&6[VezAC] &ePerf: &fmovement " + round2(snap.movementAvgMs) + "ms ("
+                sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &ePerf: &fmovement " + round2(snap.movementAvgMs) + "ms ("
                         + snap.movementSamples + " samples), packets " + round2(snap.packetAvgMs) + "ms ("
                         + snap.packetSamples + " samples)"));
             }
             if (!plugin.isEnabled() || !plugin.packetHooksRegistered()) {
-                sender.sendMessage(c("&6[VezAC] &cChecks will not run until PacketEvents is ready and hooks register."));
-                sender.sendMessage(c("&6[VezAC] &7Use &f/vez reload &7after fixing PacketEvents — avoid &f/reload&7."));
+                sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &cChecks will not run until PacketEvents is ready and hooks register."));
+                sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &7Use &f/perplexion reload &7after fixing PacketEvents — avoid &f/reload&7."));
             } else if (!enabled) {
-                sender.sendMessage(c("&6[VezAC] &cAnticheat is disabled. Use &f/vez on &cto re-enable."));
+                sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &cAnticheat is disabled. Use &f/perplexion on &cto re-enable."));
             }
             return true;
         }
@@ -106,7 +108,7 @@ public class VezCommand implements CommandExecutor {
                 return true;
             }
             if (args.length < 2) {
-                sender.sendMessage(pref() + c("&eUsage: /vez profile <lenient|balanced|aggressive>"));
+                sender.sendMessage(pref() + c("&eUsage: /perplexion profile <lenient|balanced|aggressive>"));
                 sender.sendMessage(pref() + c("&7Copies a bundled profile to config.yml and reloads."));
                 return true;
             }
@@ -148,9 +150,9 @@ public class VezCommand implements CommandExecutor {
             boolean current = staffData.isVerboseMode();
             staffData.setVerboseMode(!current);
             if (!current) {
-                sender.sendMessage(c("&6[Vez] &aVerbose mode &2enabled&a. You will see verbose flag notifications."));
+                sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &aVerbose mode &2enabled&a. You will see verbose flag notifications."));
             } else {
-                sender.sendMessage(c("&6[Vez] &cVerbose mode &4disabled&c."));
+                sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &cVerbose mode &4disabled&c."));
             }
             return true;
         }
@@ -169,9 +171,9 @@ public class VezCommand implements CommandExecutor {
             boolean current = staffData.isDebugMode();
             staffData.setDebugMode(!current);
             if (!current) {
-                sender.sendMessage(c("&6[Vez] &aDebug mode &2enabled&a. Verbose flags will include check debug details."));
+                sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &aDebug mode &2enabled&a. Verbose flags will include check debug details."));
             } else {
-                sender.sendMessage(c("&6[Vez] &cDebug mode &4disabled&c."));
+                sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &cDebug mode &4disabled&c."));
             }
             return true;
         }
@@ -182,7 +184,7 @@ public class VezCommand implements CommandExecutor {
                 return true;
             }
             if (args.length < 2) {
-                sender.sendMessage(pref() + c("&eUsage: /vez info <player>"));
+                sender.sendMessage(pref() + c("&eUsage: /perplexion info <player>"));
                 return true;
             }
             String name = args[1];
@@ -292,7 +294,7 @@ public class VezCommand implements CommandExecutor {
                 return true;
             }
             if (args.length < 2) {
-                sender.sendMessage(pref() + c("&eUsage: /vez trace <player> [count]"));
+                sender.sendMessage(pref() + c("&eUsage: /perplexion trace <player> [count]"));
                 return true;
             }
 
@@ -332,6 +334,15 @@ public class VezCommand implements CommandExecutor {
             }
             PlayerData traceData = plugin.data().get(online);
             if (traceData != null) {
+                java.util.List<com.colin.vezanticheat.movement.DebugTrace> movementTrace =
+                        new java.util.ArrayList<com.colin.vezanticheat.movement.DebugTrace>(traceData.getMovementDebugTraces());
+                if (!movementTrace.isEmpty()) {
+                    sender.sendMessage(pref() + c("&7Movement trace:"));
+                    int start = Math.max(0, movementTrace.size() - Math.min(count, 10));
+                    for (int i = start; i < movementTrace.size(); i++) {
+                        sender.sendMessage(pref() + c("&8- &f" + movementTrace.get(i).compact()));
+                    }
+                }
                 LagrangeUtil.CombatTeleportSummary lagTeleport = LagrangeUtil.summarizeCombatTeleports(
                         traceData, now, plugin.getConfig().getLong("lag.profile.active-window-ms", 4500L));
                 if (lagTeleport.hasAny() || traceData.getLagrangeTeleportScore() > 0.0D) {
@@ -359,6 +370,53 @@ public class VezCommand implements CommandExecutor {
             return true;
         }
 
+        if (sub.equals("movement")) {
+            if (!sender.hasPermission("vez.staff")) {
+                sender.sendMessage(pref() + c("&cNo permission."));
+                return true;
+            }
+            if (args.length < 2) {
+                sender.sendMessage(pref() + c("&eUsage: /perplexion movement <player>"));
+                return true;
+            }
+            Player online = Bukkit.getPlayerExact(args[1]);
+            if (online == null) {
+                sender.sendMessage(pref() + c("&cPlayer is offline."));
+                return true;
+            }
+            PlayerData movementData = plugin.data().get(online);
+            if (movementData == null || movementData.getLastSimulationResult() == null) {
+                sender.sendMessage(pref() + c("&7No movement simulation result yet."));
+                return true;
+            }
+            com.colin.vezanticheat.movement.SimulationResult result = movementData.getLastSimulationResult();
+            sender.sendMessage(pref() + c("&e--- Movement: &f" + online.getName() + " &e---"));
+            sender.sendMessage(pref() + c("&7Result: &f" + result.debug));
+            sender.sendMessage(pref() + c("&7Surface: &f" + result.surface
+                    + " &7blockBelow=&f" + result.blockBelow
+                    + " &7speed=&f" + result.speedAmplifier
+                    + " &7jump=&f" + result.jumpAmplifier
+                    + " &7slow=&f" + result.slowAmplifier));
+            sender.sendMessage(pref() + c("&7Packet: &fgap=" + result.flyingGapMs
+                    + "ms &7timerDebt=&f" + round2(result.timerDebtMs)
+                    + " &7adv=&f" + round2(result.advantage)));
+            if (result.violations.isEmpty()) {
+                sender.sendMessage(pref() + c("&7Violations: &aNone"));
+            } else {
+                sender.sendMessage(pref() + c("&7Violations:"));
+                for (com.colin.vezanticheat.movement.MovementViolation violation : result.violations) {
+                    sender.sendMessage(pref() + c("&8- &c" + violation.shortDebug()));
+                }
+            }
+            java.util.List<com.colin.vezanticheat.movement.DebugTrace> traces =
+                    new java.util.ArrayList<com.colin.vezanticheat.movement.DebugTrace>(movementData.getMovementDebugTraces());
+            int start = Math.max(0, traces.size() - 5);
+            for (int i = start; i < traces.size(); i++) {
+                sender.sendMessage(pref() + c("&8" + traces.get(i).compact()));
+            }
+            return true;
+        }
+
         if (!sender.hasPermission("vez.admin")) {
             sender.sendMessage(c("&cYou do not have permission."));
             return true;
@@ -367,14 +425,14 @@ public class VezCommand implements CommandExecutor {
         if (sub.equals("on")) {
             plugin.getConfig().set("anticheat.enabled", true);
             plugin.saveConfig();
-            sender.sendMessage(c("&6[Vez] &aAntiCheat enabled."));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &aAntiCheat enabled."));
             return true;
         }
 
         if (sub.equals("off")) {
             plugin.getConfig().set("anticheat.enabled", false);
             plugin.saveConfig();
-            sender.sendMessage(c("&6[Vez] &cAntiCheat disabled."));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &cAntiCheat disabled."));
             return true;
         }
 
@@ -391,23 +449,23 @@ public class VezCommand implements CommandExecutor {
             if (plugin.license() != null) plugin.license().initialize();
             if (plugin.updates() != null) plugin.updates().checkAsyncIfEnabled();
             plugin.startDecayTask(); // re-arm scheduled VL decay with reloaded rate/interval
-            sender.sendMessage(c("&6[VezAC] &aConfig reloaded."));
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &aConfig reloaded."));
             return true;
         }
 
         if (sub.equals("announce")) {
             plugin.getPunishmentManager().broadcastWatchdogAnnouncement();
-            sender.sendMessage(c("&6[Vez] &aBroadcasted WatchDog announcement. &7(24h count: &f"
+            sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &aBroadcasted ban announcement. &7(24h count: &f"
                     + plugin.getPunishmentManager().getRecentPunishmentCount24Hours() + "&7)"));
             return true;
         }
 
         if (sub.equals("tune")) {
             if (args.length < 3) {
-                sender.sendMessage(pref() + c("&eUsage: /vez tune <check> <key> [value]"));
-                sender.sendMessage(pref() + c("&7Examples: &f/vez tune LagrangeA flagConfidence 6.2"));
-                sender.sendMessage(pref() + c("&7          &f/vez tune LagrangeA weights.selectiveLag 0.45"));
-                sender.sendMessage(pref() + c("&7          &f/vez tune LagrangeA shadow false"));
+                sender.sendMessage(pref() + c("&eUsage: /perplexion tune <check> <key> [value]"));
+                sender.sendMessage(pref() + c("&7Examples: &f/perplexion tune LagrangeA flagConfidence 6.2"));
+                sender.sendMessage(pref() + c("&7          &f/perplexion tune LagrangeA weights.selectiveLag 0.45"));
+                sender.sendMessage(pref() + c("&7          &f/perplexion tune LagrangeA shadow false"));
                 return true;
             }
 
@@ -470,8 +528,175 @@ public class VezCommand implements CommandExecutor {
             return true;
         }
 
-        sender.sendMessage(c("&6[Vez] &eUsage: /vez <on|off|status|reload|info|trace|tune|verbose|debug|announce>"));
+        if (sub.equals("perf")) {
+            if (!sender.hasPermission("vez.staff")) {
+                sender.sendMessage(pref() + c("&cNo permission."));
+                return true;
+            }
+            sender.sendMessage(pref() + c("&eTPS: &f" + (plugin.tps() != null ? round2(plugin.tps().getTps()) : "20.0")
+                    + " &7| &eOnline: &f" + Bukkit.getOnlinePlayers().size()
+                    + " &7| &eEntities indexed: &f" + (plugin.entityIndex() != null ? plugin.entityIndex().size() : 0)));
+            PerfSampler perfSampler = plugin.perf();
+            if (perfSampler != null && perfSampler.isEnabled()) {
+                PerfSampler.Snapshot snap = perfSampler.snapshot();
+                sender.sendMessage(pref() + c("&eMovement processing: &f" + round2(snap.movementAvgMs)
+                        + "ms avg &7(" + snap.movementSamples + " samples)"));
+                sender.sendMessage(pref() + c("&ePacket processing: &f" + round2(snap.packetAvgMs)
+                        + "ms avg &7(" + snap.packetSamples + " samples)"));
+            } else {
+                sender.sendMessage(pref() + c("&7Perf sampling is off (zero overhead). Enable with "
+                        + "&fdiagnostics.perf-sampling-enabled: true &7+ /perplexion reload."));
+            }
+            if (plugin.flagStats() != null) {
+                sender.sendMessage(pref() + c("&eFlags last hour: &f" + plugin.flagStats().totalFlagsLastHour()
+                        + " &7across &f" + plugin.flagStats().playersFlaggedLastHour().size() + " &7players"));
+            }
+            return true;
+        }
+
+        if (sub.equals("checks")) {
+            if (!sender.hasPermission("vez.staff")) {
+                sender.sendMessage(pref() + c("&cNo permission."));
+                return true;
+            }
+            java.util.List<TierCheck> all = new java.util.ArrayList<TierCheck>(plugin.tierChecks().registry().all());
+            String tierFilter = null;
+            int page = 1;
+            if (args.length >= 2) {
+                try {
+                    page = Integer.parseInt(args[1]);
+                } catch (NumberFormatException notNumber) {
+                    tierFilter = args[1].toUpperCase(java.util.Locale.ROOT);
+                }
+            }
+            if (args.length >= 3) {
+                try { page = Integer.parseInt(args[2]); } catch (NumberFormatException ignored) {}
+            }
+            if (tierFilter != null) {
+                java.util.Iterator<TierCheck> it = all.iterator();
+                while (it.hasNext()) {
+                    if (!it.next().tier().name().equals(tierFilter)) it.remove();
+                }
+            }
+            int perPage = 12;
+            int pages = Math.max(1, (all.size() + perPage - 1) / perPage);
+            page = Math.max(1, Math.min(page, pages));
+            sender.sendMessage(pref() + c("&eChecks (" + all.size() + ") &7page &f" + page + "&7/&f" + pages
+                    + (tierFilter != null ? " &7tier &f" + tierFilter : "")));
+            for (int i = (page - 1) * perPage; i < Math.min(all.size(), page * perPage); i++) {
+                TierCheck check = all.get(i);
+                sender.sendMessage(c("&7- &f" + check.name()
+                        + " &8[" + check.tier().name() + "]"
+                        + (check.enabled() ? " &aon" : " &coff")
+                        + (check.shadowEnabled() ? " &eshadow" : "")
+                        + " &7buf=" + check.bufferToFlag()
+                        + " punishVl=" + (int) check.punishVl()));
+            }
+            return true;
+        }
+
+        if (sub.equals("recommendations")) {
+            if (!sender.hasPermission("vez.staff")) {
+                sender.sendMessage(pref() + c("&cNo permission."));
+                return true;
+            }
+            sender.sendMessage(pref() + c("&eConfiguration recommendations (last hour of data):"));
+            for (String line : plugin.recommendations().generate()) {
+                sender.sendMessage(c("&7- &f" + line));
+            }
+            return true;
+        }
+
+        if (sub.equals("exportdebug")) {
+            if (!sender.hasPermission("vez.staff")) {
+                sender.sendMessage(pref() + c("&cNo permission."));
+                return true;
+            }
+            if (args.length < 2) {
+                sender.sendMessage(pref() + c("&eUsage: /perplexion exportdebug <player>"));
+                return true;
+            }
+            Player target = Bukkit.getPlayer(args[1]);
+            if (target == null) {
+                sender.sendMessage(pref() + c("&cPlayer not found or offline: &f" + args[1]));
+                return true;
+            }
+            exportDebug(sender, target);
+            return true;
+        }
+
+        sender.sendMessage(c("&0&l[PE&7RPLEX&8ION] &eUsage: /perplexion <status|checks|perf|recommendations|info|movement|trace|tune|exportdebug|profile|verbose|debug|reload|on|off|announce>"));
         return true;
+    }
+
+    /**
+     * Snapshots a player's anticheat state on the main thread, then writes the YAML
+     * report asynchronously to plugins/Perplexion/debug/. Attach the file to false
+     * positive reports (see docs/FALSE_POSITIVE_REPORT_TEMPLATE.md).
+     */
+    private void exportDebug(final CommandSender sender, final Player target) {
+        final PlayerData data = plugin.data().get(target);
+        final org.bukkit.configuration.file.YamlConfiguration out =
+                new org.bukkit.configuration.file.YamlConfiguration();
+
+        out.set("export.plugin-version", plugin.getDescription().getVersion());
+        out.set("export.created", formatTime(System.currentTimeMillis()));
+        out.set("player.name", target.getName());
+        out.set("player.uuid", target.getUniqueId().toString());
+        out.set("player.ping-ms", PingUtil.getPing(target));
+        out.set("player.client-brand", data.getClientBrand());
+        out.set("player.client-version", data.getClientVersion());
+        out.set("player.bedrock", data.getBedrockVerdict() == 1);
+        out.set("player.exempt-ping-bonus-ms", data.getExemptPingBonusMs());
+        out.set("server.tps", plugin.tps() != null ? plugin.tps().getTps() : 20.0D);
+        out.set("server.online", Bukkit.getOnlinePlayers().size());
+        out.set("server.punish-safety-mode", plugin.cfg().punishSafetyMode().name());
+        out.set("violations.total-vl", data.getTotalVl());
+        for (Map.Entry<String, Double> entry : data.snapshotCheckVl().entrySet()) {
+            out.set("violations.per-check." + entry.getKey(), entry.getValue());
+        }
+        int flagIndex = 0;
+        for (com.colin.vezanticheat.staff.PolarFlagRecord record : plugin.polarFlags().recent()) {
+            if (record.playerId == null || !record.playerId.equals(target.getUniqueId())) continue;
+            String base = "recent-flags." + (flagIndex++);
+            out.set(base + ".check", record.polarCheck);
+            out.set(base + ".vl", record.vl);
+            out.set(base + ".time", formatTime(record.timestampMs));
+            out.set(base + ".ping", record.ping);
+            out.set(base + ".tps", record.tps);
+            out.set(base + ".debug", record.debug);
+        }
+
+        final java.io.File dir = new java.io.File(plugin.getDataFolder(), "debug");
+        final String fileName = target.getName() + "-"
+                + new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date()) + ".yml";
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (!dir.exists() && !dir.mkdirs()) {
+                        throw new java.io.IOException("could not create " + dir.getAbsolutePath());
+                    }
+                    java.io.File file = new java.io.File(dir, fileName);
+                    out.save(file);
+                    final String path = file.getAbsolutePath();
+                    com.colin.vezanticheat.utils.MainThread.run(plugin, new Runnable() {
+                        @Override
+                        public void run() {
+                            sender.sendMessage(pref() + c("&aDebug export written: &f" + path));
+                        }
+                    });
+                } catch (final Exception ex) {
+                    plugin.getLogger().warning("exportdebug failed: " + ex.getMessage());
+                    com.colin.vezanticheat.utils.MainThread.run(plugin, new Runnable() {
+                        @Override
+                        public void run() {
+                            sender.sendMessage(pref() + c("&cExport failed: " + ex.getMessage()));
+                        }
+                    });
+                }
+            }
+        });
     }
 
     private String round2(double v) {

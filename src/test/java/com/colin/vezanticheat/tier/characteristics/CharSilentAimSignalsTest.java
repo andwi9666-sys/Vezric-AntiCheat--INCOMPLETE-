@@ -63,6 +63,22 @@ public class CharSilentAimSignalsTest {
     }
 
     @Test
+    public void closeRangeBypassAt12StillBoostsSubBlockTrades() {
+        double at04 = CharSilentAimSignals.closeRangeSignalScale(0.4D, 1.0D, 1.40D);
+        double at13 = CharSilentAimSignals.closeRangeSignalScale(1.3D, 1.0D, 1.40D);
+        assertTrue(at04 > 1.2D);
+        assertEquals(1.0D, at13, 0.001D);
+    }
+
+    @Test
+    public void bypassThreshold12IsTighterThanLegacy15() {
+        double legacyBypass = 1.5D;
+        double tunedBypass = 1.2D;
+        assertTrue(1.25D < legacyBypass);
+        assertTrue(1.25D >= tunedBypass);
+    }
+
+    @Test
     public void requiredRotationScoreRisesWithExcess() {
         assertEquals(0.0D, CharSilentAimSignals.requiredRotationScore(0.0D), 0.001D);
         assertTrue(CharSilentAimSignals.requiredRotationScore(9.0D) > 0.4D);

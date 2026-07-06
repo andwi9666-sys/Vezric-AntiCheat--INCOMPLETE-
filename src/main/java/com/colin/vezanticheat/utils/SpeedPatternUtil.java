@@ -52,14 +52,6 @@ public final class SpeedPatternUtil {
             return;
         }
 
-        if (player != null && PotionUtil.hasSpeedBoost(player) && player.isSprinting()
-                && er.clientGround && er.predictedOnGround && !er.knockbackTick && !er.explosionTick) {
-            data.setEngineMicroRatioStreak(Math.max(0, data.getEngineMicroRatioStreak() - 1));
-            data.setEngineHorizontalGainStreak(Math.max(0, data.getEngineHorizontalGainStreak() - 1));
-            data.setEngineSpeedOvershootTicks(Math.max(0, data.getEngineSpeedOvershootTicks() - 1));
-            return;
-        }
-
         if (player != null && MovementContextAnalyzer.isLikelyLegitSprintJump(plugin, player, data)) {
             data.setEngineMicroRatioStreak(Math.max(0, data.getEngineMicroRatioStreak() - 1));
             data.setEngineHorizontalGainStreak(Math.max(0, data.getEngineHorizontalGainStreak() - 1));
@@ -85,19 +77,7 @@ public final class SpeedPatternUtil {
 
     public static boolean isInLegitSpeedArc(VezAntiCheat plugin, Player player, PlayerData data,
                                             EngineResult er, long nowMs) {
-        if (plugin == null || data == null || er == null) return false;
-        if (isYPortSlam(data, er)) return false;
-
-        long arcWindow = plugin.getConfig().getLong("movement-analysis.jump-arc-window-ms", 950L);
-        if (data.getLastJumpTime() > 0L && nowMs - data.getLastJumpTime() <= arcWindow) {
-            double maxOffset = plugin.getConfig().getDouble("movement-analysis.jump-arc-max-offset", 0.52D);
-            maxOffset += PotionUtil.jumpArcOffsetAllowance(player);
-            if (player != null && player.isSprinting()) {
-                maxOffset += 0.18D;
-            }
-            if (er.offset <= maxOffset + 0.22D) return true;
-        }
-        return false;
+        return MovementEnvelopeUtil.isLikelyVanillaJumpChain(plugin, player, data, er, nowMs, "PredictionSpeed");
     }
 
     /** YPort: jump tick then forced slam (~-0.76) with boosted horizontal carry. */
@@ -134,8 +114,9 @@ public final class SpeedPatternUtil {
         if (EngineMovementGrace.isKnockbackOrCombatGrace(plugin, data, nowMs)) return false;
         if (data.isFallArcActive() || FallArcTracker.isInFallArcWindow(plugin, data, nowMs)) return false;
 
-        long arcWindow = plugin.getConfig().getLong("movement-analysis.jump-arc-window-ms", 950L);
-        if (data.getLastJumpTime() > 0L && nowMs - data.getLastJumpTime() <= arcWindow) return false;
+        if (MovementEnvelopeUtil.isLikelyVanillaJumpChain(plugin, player, data, er, nowMs, "PredictionSpeed")) {
+            return false;
+        }
         if (player != null && MovementContextAnalyzer.isLikelyLegitSprintJump(plugin, player, data)) return false;
         if (player != null && EngineMovementGrace.isLikelyLegitJumpArc(plugin, player, data, er, nowMs)) {
             return false;
@@ -160,11 +141,6 @@ public final class SpeedPatternUtil {
         if (player != null && PotionUtil.hasSpeedBoost(player)
                 && er.horizontalOffset <= CheckConfigUtil.checkDouble(plugin, "PredictionSpeed",
                         "engineHorizontalOffset", 0.032D) + PotionUtil.combinedSpeedOffsetAllowance(player)) {
-            return false;
-        }
-
-        if (player != null && PotionUtil.hasSpeedBoost(player)
-                && player.isSprinting() && er.clientGround && er.predictedOnGround) {
             return false;
         }
 

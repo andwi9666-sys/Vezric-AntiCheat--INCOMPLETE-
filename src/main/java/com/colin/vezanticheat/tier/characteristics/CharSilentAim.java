@@ -4,95 +4,77 @@ import com.colin.vezanticheat.VezAntiCheat;
 import com.colin.vezanticheat.tier.CheckTier;
 import com.colin.vezanticheat.tier.TierCheck;
 import com.colin.vezanticheat.data.PlayerData;
-import com.colin.vezanticheat.combat.math.BoundingBox;
 import com.colin.vezanticheat.combat.math.RequiredRotationUtil;
-import com.colin.vezanticheat.utils.AimAssistUtil;
+import com.colin.vezanticheat.utils.AimSensitivityProcessor;
 import com.colin.vezanticheat.utils.CombatContextAnalyzer;
 import com.colin.vezanticheat.utils.CombatUtil;
 import com.colin.vezanticheat.utils.GcdLatticeAnalysis;
 import com.colin.vezanticheat.utils.PingUtil;
+import com.colin.vezanticheat.utils.SilentAimAnalyzer;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
 import java.util.Deque;
-import java.util.List;
 
 /**
- * CharSilentAim -- Polar Characteristics tier 8-signal silent aim aggregator
+ * CharSilentAim -- Polar Characteristics tier silent-aim FUSION CATCH-ALL.
  *
- * <p><b>What it detects:</b> Silent KillAura that manipulates rotation packets to attack
- * targets without visually turning toward them. By combining 6 independent detection
- * signals, this check identifies aura regardless of the specific rotation bypass used
- * (server-side rotation, silent aim, snap-back, etc.).</p>
+ * <p><b>What it detects:</b> Silent aim / server-side rotation. The client renders the player
+ * looking wherever the user truly aims, but the cheat OVERRIDES the outgoing rotation in
+ * flying/look packets so that ON THE SERVER the yaw/pitch points exactly at the target during
+ * the attack tick, then restores the user's real view on a later packet. The server therefore
+ * APPEARS to see perfect aim AT the attack tick.</p>
  *
- * <p><b>Algorithm (6 signals combined):</b></p>
+ * <p><b>Why attack-time angular error fails:</b> at the attack tick the server-side angular error
+ * to the target is ~0 (perfect aim), so "angular error at attack time" can NEVER catch genuine
+ * silent aim while it DOES false-flag legit flicks. This rewrite does NOT depend on attack-time
+ * angular error being large. Instead it reconstructs the per-tick rotation TRAJECTORY through the
+ * attack moment via {@link SilentAimAnalyzer} and looks for the injected-rotation FINGERPRINT.</p>
+ *
+ * <p><b>Signals fused ({@link CharSilentAimSignals#fuse}):</b></p>
  * <ol>
- *   <li><b>Signal 1 - Angular Error:</b> How far off the player's look direction is from
- *       the target's hitbox at attack time. High angle + low dot = not facing target.</li>
- *   <li><b>Signal 2 - Pre-Attack Snap:</b> Concentrated rotation work in the last packet
- *       before attack (ratio of last-packet improvement to total improvement). High ratio
- *       = all aiming done in one snap packet.</li>
- *   <li><b>Signal 3 - Post-Reset:</b> After a suspicious attack, the player rotates BACK
- *       toward their original look direction (confirming snap-back pattern). Tracked via
- *       onRotation() callback.</li>
- *   <li><b>Signal 4 - Movement Mismatch:</b> Player's movement direction vs. direction to
- *       target. Moving away from the target while attacking suggests automated aim.</li>
- *   <li><b>Signal 5 - Center Bias:</b> Unnaturally tight clustering of hit positions near
- *       the exact center of the target's hitbox over multiple attacks.</li>
- *   <li><b>Signal 6 - Attack-Tick Correlation:</b> Rotation changes occur ONLY on attack
- *       ticks (not between attacks). Tracked via onFlyingPacket() over a 5-second window.</li>
+ *   <li><b>snapRestore</b> (w 2.0) -- {@code SilentAimAnalyzer} snap-TO-target-and-restore: yaw/pitch
+ *       jump TO a value aiming at the hitbox (error collapses near-0 from a high prior error) and then
+ *       jump BACK toward the pre-snap heading on a later packet. The RETURN is the tell.</li>
+ *   <li><b>hitboxVel</b> (w 1.8) -- impossible angular velocity onto the hitbox (incl. 180/large snaps
+ *       terminating exactly on a valid target), beyond {@link RequiredRotationUtil#snapAngularVelocityThreshold(int)}.</li>
+ *   <li><b>centerLock</b> (w 1.0) -- aim repeatedly lands dead-center with near-zero sub-degree jitter
+ *       (humans always jitter), averaged over a window.</li>
+ *   <li><b>desync</b> (w 1.0) -- horizontal movement/strafe implies a heading disagreeing with the
+ *       server yaw at attack time (existing movement-mismatch, now de-gated).</li>
+ *   <li><b>lattice</b> (w 1.0) -- GCD/sensitivity lattice break (residue/conformity) plus non-vanilla
+ *       recovered sensitivity ({@link AimSensitivityProcessor}).</li>
+ *   <li><b>exclusivity</b> (w 1.2) -- meaningful rotation happens ONLY on/just-before attack ticks
+ *       (existing onFlyingPacket correlation counters).</li>
+ *   <li><b>linearRamp</b> (w 0.8) -- unnaturally linear / constant-angular-velocity ramps toward the
+ *       target ({@link GcdLatticeAnalysis#distributedSnapRatio(double[])}).</li>
  * </ol>
  *
- * <p>Signals are weighted (1.5/2.0/1.5/1.0/0.8/1.5 = 8.3 total) and combined into a
- * composite score. Multiplied by 1.3-1.5x when 3-4+ signals are active simultaneously.</p>
+ * <p><b>Multi-signal requirement (FPs near zero):</b> buffer only gains when there are &gt;=2 STRONG
+ * transient signals (snapRestore/hitboxVel via {@link CharSilentAimSignals#strongSignalCount}) OR a
+ * SUSTAINED snap-restore pattern (window has &gt;= snapRestoreSustainMin samples averaging &gt;=
+ * snapRestoreSustainAvg). A single ambiguous hit never flags.</p>
  *
- * <p><b>PlayerData fields used:</b></p>
- * <ul>
- *   <li>{@code killAuraASwitchBuffer} -- main buffer counter.</li>
- *   <li>{@code killAuraACleanStreak} -- consecutive clean attacks (for decay).</li>
- *   <li>{@code killAuraALastHitMs} -- timestamp for decay timing.</li>
- *   <li>{@code killAuraAPostReset*} -- signal 3 tracking (active, start, base/attack yaw/pitch).</li>
- *   <li>{@code killAuraARotOnAttackTicks / rotOnNonAttackTicks / noRotOnNonAttackTicks} --
- *       signal 6 correlation counters.</li>
- *   <li>{@code killAuraACorrelationWindowStart} -- signal 6 window start.</li>
- *   <li>{@code killAuraAMismatchAngles} -- signal 4 history deque.</li>
- *   <li>{@code killAuraACenterErrors} -- signal 5 history deque.</li>
- *   <li>{@code positionHistory} -- position samples for signals 2, 4, 5.</li>
- * </ul>
+ * <p><b>False-positive protections (all preserved):</b> Bedrock/Geyser aim-exempt (via TierCheck.fail
+ * -&gt; ClientCompatUtil.isAimExempt for aim characteristic checks), velocity/teleport exempt, tps/ping
+ * lag gating (fail()/lagGated), combat-context exemptions (spacing, counterstrafe, kb-flick, combat-spam,
+ * recent-jump via {@link CombatContextAnalyzer#shouldExemptAimHeuristics}), minSampleWeight bail +
+ * sample-weight multiplier, {@code isLegitExpansionMarginHit} grace on the 0.1 shell edge, close-range
+ * taper ({@link CharSilentAimSignals#closeRangeSignalScale}) instead of hard zeroing, clean-streak decay
+ * + buffer reset on flag, conservative cancel guard (buf&gt;=3 AND sampleWeight&gt;=0.40).</p>
  *
- * <p><b>Buffer/threshold system:</b> Score-based tiered gain: blatant (&gt;= 0.70) = +3,
- * suspicious (&gt;= 0.45) = +2, mild (&gt;= 0.25) = +1, plus +1 bonus when 3+ signals
- * active. Flags at bufferToFlag (default 4). Clean streak of 3+ with 1.5s gap decays
- * buffer by 1. Resets to 0 on flag.</p>
- *
- * <p><b>Exemptions:</b></p>
- * <ul>
- *   <li>Velocity/teleport exempt.</li>
- *   <li>Close range (&lt; 1.5 blocks) -- angular error unreliable at point-blank.</li>
- *   <li>Low sample weight (&lt; 0.20) -- insufficient combat context reliability.</li>
- *   <li>Signal 2 skipped for high ping (&gt; 150ms).</li>
- *   <li>Signal 4 skipped at close range or low movement speed.</li>
- *   <li>Signal 5 only evaluated at 1-3 block range.</li>
- *   <li>Signal 6 skipped with &lt; 40 total ticks or &lt; 2 seconds of data.</li>
- *   <li>Vanilla expansion margin hit -- legit edge hit in the 0.1 block shell.</li>
- *   <li>High-CPS PvP spam, jump crit chains, and forward rush via shouldExemptAimHeuristics.</li>
- * </ul>
- *
- * <p><b>False positive protections:</b> Performance short-circuit skips expensive
- * signals if S1 is 0 (player IS facing target); combo/trade halves S1; recent jump
- * halves S2; signal 6 excludes naturally stationary players; composite score scaled
- * by combat sample weight; clean streak decay; close-range bypass for all geometric
- * signals; minimum active signal requirement for multiplier.</p>
- *
- * <p><b>Connections:</b> Feeds "AIM" signals to KillAuraAggregateUtil (KillAuraH).
- * Uses onRotation() for signal 3 (snap-back tracking) and onFlyingPacket() for
- * signal 6 (attack-tick correlation). Packet cancellation at cancelThreshold (0.85).</p>
+ * <p><b>Hooks preserved for dependent checks:</b> onRotation still feeds
+ * {@link GcdLatticeAnalysis#pushAngularSample} / peak angular velocity (other checks read
+ * angularVelocitySamples) and the post-reset confirm logic (CharAimReset depends on it); onFlyingPacket
+ * still maintains the attack-tick correlation counters (CharAimCorrelation depends on them).</p>
  */
 public final class CharSilentAim extends TierCheck {
 
-    private static final double TOTAL_WEIGHT = 1.5 + 2.0 + 1.5 + 1.0 + 0.8 + 1.5; // 8.3
+    /** Hard cap on the sustained snap-restore window, enforced HERE by the caller (no setter pushes). */
+    private static final int SNAP_RESTORE_CAP = 12;
+    /** Hard cap on the center-lock jitter window, enforced HERE by the caller (no setter pushes). */
+    private static final int CENTER_LOCK_CAP = 16;
 
     public CharSilentAim(VezAntiCheat plugin) {
         super(plugin, "CharSilentAim", CheckTier.CHARACTERISTICS);
@@ -103,8 +85,13 @@ public final class CharSilentAim extends TierCheck {
         if (p == null || data == null) return;
 
         long now = System.currentTimeMillis();
+        // Reset per-attack transient outputs other checks may read (snapScore, peak velocity).
         data.setPeakAngularVelocityDegPerSec(0.0D);
         data.setKillAuraASnapRatio(0.0D);
+        data.setSilentLastSnapRestoreScore(0.0D);
+        data.setSilentLastHitboxSnapVelDegPerSec(0.0D);
+
+        // --- Fresh-attack gate ---
         if (!data.wasLastUseEntityAttack()) return;
         if (now - data.getLastUseEntityTime() > plugin.tierCfg().checkLong(name(), "attackFreshnessMs", 150L)) return;
         if (data.isVelocityExempt()) return;
@@ -116,7 +103,8 @@ public final class CharSilentAim extends TierCheck {
         CombatContextAnalyzer.CombatContext combat = CombatContextAnalyzer.analyze(plugin, p, data, name());
         if (combat == null) return;
 
-        if (combat.getSampleWeight() < plugin.tierCfg().checkDouble(name(), "minSampleWeight", 0.20)) {
+        double minSampleWeight = plugin.tierCfg().checkDouble(name(), "minSampleWeight", 0.20);
+        if (combat.getSampleWeight() < minSampleWeight) {
             decay(p, 0.25);
             return;
         }
@@ -137,6 +125,7 @@ public final class CharSilentAim extends TierCheck {
         Location eye = data.getLastAttackEyeLocation();
         if (eye == null || eye.getWorld() == null) eye = p.getEyeLocation();
 
+        // --- Resolve the SAME lag-comp hitbox the reach engine used ---
         PlayerData targetData = target instanceof Player ? plugin.data().get((Player) target) : null;
         CombatUtil.ReachContext ctx = null;
         if (plugin.getConfig().getBoolean("combat-engine.enabled", true)) {
@@ -150,6 +139,7 @@ public final class CharSilentAim extends TierCheck {
         }
         if (ctx == null) return;
 
+        // Legit 0.1-block shell edge hit -> grace.
         if (ctx.isLegitExpansionMarginHit(eye)) {
             decay(p, 0.30);
             return;
@@ -160,52 +150,80 @@ public final class CharSilentAim extends TierCheck {
         double closeTaper = plugin.tierCfg().checkDouble(name(), "closeRangeTaper", 1.2);
         double closeBoost = plugin.tierCfg().checkDouble(name(), "closeRangeSignalBoost", 1.35);
         boolean closeRange = dist < closeBypass;
+        // Taper (not hard-zero) the corroborating signals at point-blank where geometry is noisy.
         double closeScale = CharSilentAimSignals.closeRangeSignalScale(dist, closeTaper, closeBoost);
 
         Location compensated = ctx.getCompensatedLocation();
         double width = ctx.getWidth();
         double height = ctx.getHeight();
 
-        // --- Signal 1: Angular error (unreliable at point-blank) ---
-        double s1 = closeRange ? 0.0 : computeAngularErrorSignal(eye, compensated, width, height, combat);
+        // ===================== INJECTED-ROTATION FINGERPRINT =====================
+        long windowMs = plugin.tierCfg().checkLong(name(), "analyzerWindowMs", 120L);
+        SilentAimAnalyzer.Result analysis = SilentAimAnalyzer.analyze(
+                data.getRotationRingBuffer(), data.getPositionHistory(),
+                eye, compensated, width, height,
+                data.getLastUseEntityTime(), ping, windowMs);
 
-        // --- Performance short-circuit: if player IS facing target, skip expensive signals ---
-        double s2 = 0.0, s4 = 0.0, s6 = 0.0;
-        if (!closeRange && s1 > 0.0) {
-            s2 = computePreAttackSnapSignal(p, data, eye, target, compensated, width, height, ping, combat);
-            s4 = computeMovementMismatchSignal(p, data, target, dist, now);
+        // (1) snap-to-target-and-restore: store + push to the sustained window (cap enforced HERE).
+        double snapRestore = CharSilentAimSignals.snapRestoreScore(
+                SilentAimAnalyzer.snapRestoreScore(analysis));
+        data.setSilentLastSnapRestoreScore(snapRestore);
+        Deque<Double> snapWindow = data.getSilentSnapRestoreScores();
+        snapWindow.addLast(snapRestore);
+        while (snapWindow.size() > SNAP_RESTORE_CAP) snapWindow.removeFirst();
+
+        // (2) impossible angular velocity ONTO the hitbox (incl. 180/large snaps).
+        double hitboxSnapVelDegPerSec = SilentAimAnalyzer.hitboxSnapVelocity(analysis);
+        data.setSilentLastHitboxSnapVelDegPerSec(hitboxSnapVelDegPerSec);
+        double hitboxVel = CharSilentAimSignals.hitboxSnapVelocityScore(hitboxSnapVelDegPerSec, ping);
+
+        // (3) center-lock + zero sub-degree jitter: push jitter to the window (cap enforced HERE),
+        //     average jitter AND center margin, score only when BOTH are unnaturally small.
+        Deque<Double> jitterWindow = data.getSilentCenterLockJitter();
+        jitterWindow.addLast(SilentAimAnalyzer.centerLockJitter(analysis));
+        while (jitterWindow.size() > CENTER_LOCK_CAP) jitterWindow.removeFirst();
+        double centerLock = 0.0D;
+        if (jitterWindow.size() >= 4) {
+            double avgJitter = average(jitterWindow);
+            double avgMargin = analysis.centerMarginDeg; // current-attack center margin window
+            centerLock = CharSilentAimSignals.centerLockScore(avgMargin, avgJitter) * closeScale;
         }
-        s6 = computeAttackTickCorrelationSignal(data, now);
 
-        double s7 = computeGcdLatticeSignal(data);
-        double s8 = computeRequiredRotationSignal(eye, compensated, width, height, dist, ping, data);
+        // (4) rotation<->movement desync (de-gated; no longer behind s1>0).
+        double desync = CharSilentAimSignals.movementMismatchScore(data);
 
-        // --- Signal 3: Post-reset bonus (always compute, accumulates over time) ---
-        double s3 = getPostResetBonus(data, now);
+        // (5) GCD residue/conformity + non-vanilla recovered sensitivity.
+        double lattice = computeLatticeSignal(data) * closeScale;
 
-        // --- Signal 5: Center bias (always compute, statistical) ---
-        double s5 = computeCenterBiasSignal(data, eye, compensated, width, height, dist);
+        // (6) attack-tick rotation exclusivity (existing onFlyingPacket counters).
+        double exclusivity = CharSilentAimSignals.correlationScore(data) * closeScale;
 
-        // --- Combine signals ---
-        double weightedSum = s1 * 1.5 + s2 * 2.0 + s3 * 1.5 + s4 * 1.0
-                + s5 * 0.8 * closeScale + s6 * 1.5 * closeScale + s7 * 1.0 * closeScale + s8 * 1.5 * closeScale;
-        double combinedScore = weightedSum / (TOTAL_WEIGHT + 2.5);
+        // (7) constant-velocity / linear-ramp toward the target.
+        double linearRamp = analysis.linearRampRatio;
 
-        int activeSignals = countAbove(0.3, s1, s2, s3, s4, s5, s6, s7, s8);
-        if (activeSignals >= 4) combinedScore *= 1.5;
-        else if (activeSignals >= 3) combinedScore *= 1.3;
-
+        // --- Fuse + scale by combat reliability ---
+        double combinedScore = CharSilentAimSignals.fuse(
+                snapRestore, hitboxVel, centerLock, desync, lattice, exclusivity, linearRamp);
         combinedScore *= combat.getSampleWeight();
 
-        // --- Buffer logic ---
+        // ===================== MULTI-SIGNAL ENFORCEMENT =====================
+        int strong = CharSilentAimSignals.strongSignalCount(snapRestore, hitboxVel);
+        int sustainMin = plugin.tierCfg().checkInt(name(), "snapRestoreSustainMin", 3);
+        double sustainAvg = plugin.tierCfg().checkDouble(name(), "snapRestoreSustainAvg", 0.45);
+        boolean sustained = false;
+        if (snapWindow.size() >= sustainMin) {
+            sustained = average(snapWindow) >= sustainAvg;
+        }
+        boolean multiSignal = strong >= 2 || sustained;
+
+        // --- Tiered buffer gain (blatant / suspicious / mild kept), gated on the multi-signal rule ---
         int buf = data.getKillAuraASwitchBuffer();
         int gain = 0;
-
-        if (combinedScore >= plugin.tierCfg().checkDouble(name(), "blatantThreshold", 0.70)) gain = 3;
-        else if (combinedScore >= plugin.tierCfg().checkDouble(name(), "suspiciousThreshold", 0.45)) gain = 2;
-        else if (combinedScore >= plugin.tierCfg().checkDouble(name(), "mildThreshold", 0.25)) gain = 1;
-
-        if (activeSignals >= 3 && gain > 0) gain += 1;
+        if (multiSignal) {
+            if (combinedScore >= plugin.tierCfg().checkDouble(name(), "blatantThreshold", 0.70)) gain = 3;
+            else if (combinedScore >= plugin.tierCfg().checkDouble(name(), "suspiciousThreshold", 0.45)) gain = 2;
+            else if (combinedScore >= plugin.tierCfg().checkDouble(name(), "mildThreshold", 0.25)) gain = 1;
+        }
 
         if (gain == 0) {
             int streak = data.getKillAuraACleanStreak() + 1;
@@ -218,40 +236,46 @@ public final class CharSilentAim extends TierCheck {
         } else {
             data.setKillAuraACleanStreak(0);
             buf += gain;
-
-            }
+        }
 
         data.setKillAuraASwitchBuffer(buf);
         data.setKillAuraALastHitMs(now);
 
-        // --- Packet cancel ---
+        boolean shadow = plugin.tierCfg().checkBoolean(name(), "shadow", false);
+
+        // --- Conservative packet cancel on high-confidence sustained pattern ---
         double cancelThreshold = plugin.tierCfg().checkDouble(name(), "cancelThreshold", 0.85);
-        if (combinedScore >= cancelThreshold && buf >= 3 && combat.getSampleWeight() >= 0.40) {
-            blockAttack(p, data,
-                    "silent-aura score=" + r(combinedScore) + " active=" + activeSignals + " buf=" + buf);
+        if (!shadow && multiSignal && combinedScore >= cancelThreshold
+                && buf >= 3 && combat.getSampleWeight() >= 0.40) {
+            blockAttack(p, data, "silent-aim score=" + r(combinedScore)
+                    + " snap=" + r(snapRestore) + " vel=" + r(hitboxVel) + " buf=" + buf);
         }
 
-        // --- Flag ---
+        // --- Flag a SUSTAINED pattern over the buffer ---
         int bufferToFlag = plugin.tierCfg().checkInt(name(), "bufferToFlag", 4);
         if (gain > 0 && buf < bufferToFlag) {
-            verbose(p, "buf=" + buf + "/" + bufferToFlag + " score=" + r(combinedScore) + " active=" + activeSignals);
+            verbose(p, "buf=" + buf + "/" + bufferToFlag + " score=" + r(combinedScore)
+                    + " strong=" + strong + " sustained=" + sustained);
         }
         if (buf >= bufferToFlag) {
-            blockAttack(p, data,
-                    "silent-aura score=" + r(combinedScore) + " active=" + activeSignals + " buf=" + buf);
+            if (!shadow) {
+                blockAttack(p, data, "silent-aim score=" + r(combinedScore)
+                        + " snap=" + r(snapRestore) + " vel=" + r(hitboxVel) + " buf=" + buf);
+            }
             fail(p, data, plugin.tierCfg().checkDouble(name(), "vl", 1.5),
-                    "score=" + r(combinedScore) + " s1=" + r(s1) + " s2=" + r(s2)
-                            + " s3=" + r(s3) + " s4=" + r(s4) + " s5=" + r(s5) + " s6=" + r(s6)
-                            + " s7=" + r(s7) + " s8=" + r(s8)
-                            + " active=" + activeSignals + " buf=" + buf
+                    "score=" + r(combinedScore) + " snap=" + r(snapRestore) + " vel=" + r(hitboxVel)
+                            + " center=" + r(centerLock) + " desync=" + r(desync) + " lattice=" + r(lattice)
+                            + " excl=" + r(exclusivity) + " ramp=" + r(linearRamp)
+                            + " strong=" + strong + " sustained=" + sustained + " buf=" + buf
                             + " dist=" + r(dist) + " " + combat.debugSummary());
             data.setKillAuraASwitchBuffer(0);
+            snapWindow.clear();
         }
 
-        // --- Activate post-reset tracking (signal 3) if suspicious ---
+        // --- Activate post-reset tracking (CharAimReset confirm path) on a suspicious snap ---
         if (!CombatContextAnalyzer.isLikelySpacingMovement(plugin, data, p, now)
                 && !CombatContextAnalyzer.isLikelyCounterstrafeSpacing(plugin, data, now)
-                && (s1 > 0.3 || s2 > 0.4) && !data.isKillAuraAPostResetActive()) {
+                && (snapRestore > 0.30D || hitboxVel > 0.30D) && !data.isKillAuraAPostResetActive()) {
             activatePostResetTracking(data, eye, now);
         }
     }
@@ -261,12 +285,14 @@ public final class CharSilentAim extends TierCheck {
         if (p == null || data == null) return;
 
         long now = System.currentTimeMillis();
+        // KEEP: feed angularVelocitySamples + peak (read by other checks).
         GcdLatticeAnalysis.pushAngularSample(data.getAngularVelocitySamples(), yaw, pitch, now, 16);
         double peak = GcdLatticeAnalysis.peakAngularVelocityDegPerSec(data.getAngularVelocitySamples(), 50L);
         if (peak > data.getPeakAngularVelocityDegPerSec()) {
             data.setPeakAngularVelocityDegPerSec(peak);
         }
 
+        // KEEP: post-reset confirm logic (CharAimReset depends on these counters).
         if (!data.isKillAuraAPostResetActive()) return;
 
         long elapsed = now - data.getKillAuraAPostResetStartMs();
@@ -278,9 +304,7 @@ public final class CharSilentAim extends TierCheck {
         }
 
         float baseYaw = data.getKillAuraAPostResetBaseYaw();
-        float basePitch = data.getKillAuraAPostResetBasePitch();
         float attackYaw = data.getKillAuraAPostResetAttackYaw();
-        float attackPitch = data.getKillAuraAPostResetAttackPitch();
 
         float distToBase = CombatUtil.angleDiff(yaw, baseYaw);
         float distToAttack = CombatUtil.angleDiff(yaw, attackYaw);
@@ -299,7 +323,7 @@ public final class CharSilentAim extends TierCheck {
         if (p == null || data == null) return;
         if (CombatContextAnalyzer.shouldExemptAimHeuristics(plugin, null, data, p, nowMs)) return;
 
-        // Signal 6: track rotation correlation with attack ticks
+        // KEEP: attack-tick rotation correlation counters (CharAimCorrelation depends on them).
         long windowStart = data.getKillAuraACorrelationWindowStart();
         long windowMs = plugin.tierCfg().checkLong(name(), "correlationWindowMs", 5000L);
         int maxTicks = plugin.tierCfg().checkInt(name(), "correlationMaxTicks", 100);
@@ -329,224 +353,24 @@ public final class CharSilentAim extends TierCheck {
         }
     }
 
-    // ========== Signal computation methods ==========
+    // ========== Signal helpers ==========
 
-    private double computeAngularErrorSignal(Location eye, Location compensated, double width, double height,
-                                             CombatContextAnalyzer.CombatContext combat) {
-        double angle = CombatUtil.angularError(eye, compensated, width, height);
-        double dot = CombatUtil.lookDotToHitbox(eye, compensated, width, height);
-
-        double signal = clamp((angle - 8.0) / 55.0, 0.0, 1.0);
-        if (dot < 0.55 && angle > 18.0) signal = Math.min(1.0, signal + 0.15);
-        if (combat.isCombo() || combat.isTrade()) signal *= 0.5;
-
-        return signal;
-    }
-
-    private double computePreAttackSnapSignal(Player p, PlayerData data, Location eye, Entity target,
-                                              Location compensated, double width, double height,
-                                              int ping, CombatContextAnalyzer.CombatContext combat) {
-        long now = System.currentTimeMillis();
-        double snapThreshold = RequiredRotationUtil.snapAngularVelocityThreshold(ping);
-        if (data.getPeakAngularVelocityDegPerSec() >= snapThreshold) {
-            double snapSignal = Math.min(1.0D, (data.getPeakAngularVelocityDegPerSec() - snapThreshold) / 400.0D);
-            data.setKillAuraASnapRatio(Math.max(data.getKillAuraASnapRatio(), snapSignal));
-        }
-        if (CombatContextAnalyzer.isLikelySpacingMovement(plugin, data, p, now)
-                || CombatContextAnalyzer.isLikelyCounterstrafeSpacing(plugin, data, now)) {
-            return 0.0;
-        }
-
-        long attackTime = data.getLastUseEntityTime();
-        long windowMs = plugin.tierCfg().checkLong(name(), "preSnapWindowMs", 250L);
-        int minSamples = plugin.tierCfg().checkInt(name(), "preSnapMinSamples", 3);
-
-        List<PlayerData.PositionSample> samples = new ArrayList<>();
-        for (PlayerData.PositionSample s : data.getPositionHistory()) {
-            if (s == null) continue;
-            long age = attackTime - s.getTime();
-            if (age >= 0 && age <= windowMs) samples.add(s);
-        }
-
-        if (samples.size() < minSamples) return 0.0;
-
-        // Compute angular error at each sample toward compensated target
-        double[] errors = new double[samples.size()];
-        for (int i = 0; i < samples.size(); i++) {
-            PlayerData.PositionSample s = samples.get(i);
-            Location sampleEye = new Location(eye.getWorld(), s.getX(), s.getY() + 1.62, s.getZ(), s.getYaw(), s.getPitch());
-            errors[i] = CombatUtil.angularError(sampleEye, compensated, width, height);
-        }
-
-        // If first sample already well-aimed (< 10deg), player was tracking normally
-        if (errors[0] < 10.0) return 0.0;
-
-        // Compute alignment work per sample (reduction in error)
-        double totalWork = 0.0;
-        double lastPacketWork = 0.0;
-        double maxStepWork = 0.0;
-        for (int i = 1; i < errors.length; i++) {
-            double improvement = errors[i - 1] - errors[i];
-            if (improvement > 0) {
-                totalWork += improvement;
-                maxStepWork = Math.max(maxStepWork, improvement);
-                if (i == errors.length - 1) lastPacketWork = improvement;
-            }
-        }
-
-        if (totalWork < 3.0) return 0.0;
-
-        double ratio = lastPacketWork / totalWork;
-        double distributed = maxStepWork / totalWork;
-        double signal = clamp((ratio - 0.5) / 0.3, 0.0, 1.0);
-        if (distributed >= 0.35D && totalWork >= 8.0D) {
-            signal = Math.max(signal, clamp((distributed - 0.28D) / 0.22D, 0.0, 1.0));
-        }
-        signal = Math.max(signal, GcdLatticeAnalysis.distributedSnapRatio(errors) >= 0.38D
-                ? 0.55D : 0.0D);
-
-        if (combat.isRecentJump()) signal *= 0.5;
-
-        data.setKillAuraASnapRatio(Math.max(data.getKillAuraASnapRatio(), ratio));
-        return signal;
-    }
-
-    private double computeRequiredRotationSignal(Location eye, Location compensated, double width, double height,
-                                                 double dist, int ping, PlayerData data) {
-        if (eye == null || compensated == null || data == null || dist > 4.5D) return 0.0D;
-        BoundingBox box = BoundingBox.fromFeet(compensated, width, height);
-        RequiredRotationUtil.Result result = RequiredRotationUtil.evaluate(
-                eye, data.getPacketYaw(), data.getPacketPitch(), box, ping);
-        if (!result.exceedsTolerance()) return 0.0D;
-        return CharSilentAimSignals.requiredRotationScore(result.excessBeyondAllowance());
-    }
-
-    private double computeGcdLatticeSignal(PlayerData data) {
+    /** GCD residue/conformity (max) plus non-vanilla recovered sensitivity. */
+    private double computeLatticeSignal(PlayerData data) {
         if (data == null) return 0.0D;
         Deque<Float> yawDeltas = data.getYawDeltas();
         Deque<Float> pitchDeltas = data.getPitchDeltas();
         double conformity = GcdLatticeAnalysis.latticeConformitySuspicion(yawDeltas, pitchDeltas);
         double residue = GcdLatticeAnalysis.latticeResidueFraction(yawDeltas, pitchDeltas);
         double residueScore = residue >= 0.35D ? Math.min(1.0D, (residue - 0.35D) / 0.35D) : 0.0D;
-        return Math.max(conformity, residueScore);
-    }
+        double latticeBreak = Math.max(conformity, residueScore);
 
-    private double getPostResetBonus(PlayerData data, long now) {
-        int confirmed = data.getKillAuraAPostResetConfirmed();
-        if (confirmed <= 0) return 0.0;
-
-        // Decay confirmations over time
-        long lastHit = data.getKillAuraALastHitMs();
-        if (lastHit > 0 && (now - lastHit) > 3000L && confirmed > 0) {
-            data.setKillAuraAPostResetConfirmed(confirmed - 1);
-            confirmed--;
-        }
-
-        return Math.min(1.0, confirmed * 0.3);
-    }
-
-    private double computeMovementMismatchSignal(Player p, PlayerData data, Entity target, double dist, long nowMs) {
-        if (dist < 1.5) return 0.0;
-        if (CombatContextAnalyzer.isLikelySpacingMovement(plugin, data, p, nowMs)) return 0.0;
-        if (CombatContextAnalyzer.isLikelyCounterstrafeSpacing(plugin, data, nowMs)) return 0.0;
-
-        Deque<PlayerData.PositionSample> history = data.getPositionHistory();
-        if (history.size() < 3) return 0.0;
-
-        // Get last 2 samples for movement direction
-        PlayerData.PositionSample[] recent = new PlayerData.PositionSample[2];
-        int idx = 0;
-        for (PlayerData.PositionSample s : history) {
-            if (s == null) continue;
-            recent[idx] = s;
-            idx++;
-            if (idx >= 2) break;
-        }
-        if (recent[0] == null || recent[1] == null) return 0.0;
-
-        double dx = recent[0].getX() - recent[1].getX();
-        double dz = recent[0].getZ() - recent[1].getZ();
-        double speed = Math.sqrt(dx * dx + dz * dz);
-
-        if (speed < 0.08) return 0.0;
-
-        float moveDirection = (float) Math.toDegrees(Math.atan2(-dx, dz));
-
-        Location playerLoc = p.getLocation();
-        Location targetLoc = target.getLocation();
-        double tdx = targetLoc.getX() - playerLoc.getX();
-        double tdz = targetLoc.getZ() - playerLoc.getZ();
-        float attackDirection = (float) Math.toDegrees(Math.atan2(-tdx, tdz));
-
-        float mismatch = CombatUtil.angleDiff(moveDirection, attackDirection);
-
-        // Store for averaging
-        Deque<Double> mismatchHistory = data.getKillAuraAMismatchAngles();
-        mismatchHistory.addLast((double) mismatch);
-        while (mismatchHistory.size() > 10) mismatchHistory.removeFirst();
-
-        // Require 5+ samples with high average
-        if (mismatchHistory.size() < 5) return 0.0;
-        double avg = 0.0;
-        for (double m : mismatchHistory) avg += m;
-        avg /= mismatchHistory.size();
-
-        if (avg < 60.0) return 0.0;
-
-        return clamp((mismatch - 45.0) / 90.0, 0.0, 1.0);
-    }
-
-    private double computeCenterBiasSignal(PlayerData data, Location eye, Location compensated,
-                                           double width, double height, double dist) {
-        double maxRange = plugin.tierCfg().checkDouble(name(), "centerBiasMaxRange", 4.5D);
-        if (dist < 1.0 || dist > maxRange) return 0.0;
-        double rangeWeight = dist <= 1.5D ? 1.0D : Math.max(0.35D, 1.0D - ((dist - 1.5D) / (maxRange - 1.5D)) * 0.65D);
-
-        // Center angle: angle to exact center of hitbox
-        Location center = compensated.clone().add(0, height / 2.0, 0);
-        double centerAngle = CombatUtil.angularError(eye, center, 0.001, 0.001);
-        double closestAngle = CombatUtil.angularError(eye, compensated, width, height);
-        double centerMargin = Math.max(0.0, centerAngle - closestAngle);
-
-        Deque<Double> errors = data.getKillAuraACenterErrors();
-        errors.addLast(centerMargin);
-        while (errors.size() > 10) errors.removeFirst();
-
-        if (errors.size() < 5) return 0.0;
-
-        double avg = 0.0;
-        for (double e : errors) avg += e;
-        avg /= errors.size();
-
-        if (avg > 1.5) return 0.0;
-        return clamp((1.5 - avg) / 1.0, 0.0, 1.0) * rangeWeight;
-    }
-
-    private double computeAttackTickCorrelationSignal(PlayerData data, long now) {
-        int rotOnAttack = data.getKillAuraARotOnAttackTicks();
-        int rotOnNonAttack = data.getKillAuraARotOnNonAttackTicks();
-        int noRotNonAttack = data.getKillAuraANoRotOnNonAttackTicks();
-        int totalTicks = rotOnAttack + rotOnNonAttack + noRotNonAttack;
-        long windowStart = data.getKillAuraACorrelationWindowStart();
-
-        if (totalTicks < 40 || rotOnAttack < 3) return 0.0;
-        if (windowStart > 0 && (now - windowStart) < 2000L) return 0.0;
-
-        // If player is naturally stationary (rarely rotates outside attacks), don't signal
-        int totalNonAttack = rotOnNonAttack + noRotNonAttack;
-        if (totalNonAttack > 0 && (double) noRotNonAttack / totalNonAttack > 0.70) return 0.0;
-
-        int totalWithRotation = rotOnAttack + rotOnNonAttack;
-        if (totalWithRotation == 0) return 0.0;
-
-        double exclusivity = (double) rotOnAttack / totalWithRotation;
-        if (exclusivity < 0.70) return 0.0;
-
-        return clamp((exclusivity - 0.70) / 0.20, 0.0, 1.0);
+        AimSensitivityProcessor.Result sens = AimSensitivityProcessor.analyze(yawDeltas, pitchDeltas);
+        return Math.max(latticeBreak, sens.suspicion());
     }
 
     private void activatePostResetTracking(PlayerData data, Location eye, long now) {
-        // Find the baseline rotation (2 samples before current)
+        // Baseline = the rotation 2 samples back (the pre-snap heading the aim should restore TO).
         Deque<PlayerData.PositionSample> history = data.getPositionHistory();
         PlayerData.PositionSample baseline = null;
         int count = 0;
@@ -554,7 +378,6 @@ public final class CharSilentAim extends TierCheck {
             count++;
             if (count >= 3) { baseline = s; break; }
         }
-
         if (baseline == null) return;
 
         data.setKillAuraAPostResetActive(true);
@@ -567,14 +390,17 @@ public final class CharSilentAim extends TierCheck {
 
     // ========== Utility ==========
 
-    private int countAbove(double threshold, double... values) {
-        int count = 0;
-        for (double v : values) if (v > threshold) count++;
-        return count;
-    }
-
-    private double clamp(double val, double min, double max) {
-        return Math.max(min, Math.min(max, val));
+    /** Mean of a deque of Doubles (null-safe, empty -> 0). */
+    private double average(Deque<Double> values) {
+        if (values == null || values.isEmpty()) return 0.0D;
+        double sum = 0.0D;
+        int n = 0;
+        for (Double d : values) {
+            if (d == null) continue;
+            sum += d;
+            n++;
+        }
+        return n == 0 ? 0.0D : sum / n;
     }
 
     private double r(double v) {

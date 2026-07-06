@@ -14,7 +14,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Staff debug output for per-player combat evidence (/vez combat &lt;player&gt;).
+ * Staff debug output for per-player combat evidence (/perplexion combat &lt;player&gt;).
  */
 public final class CombatCommand {
 
@@ -28,33 +28,33 @@ public final class CombatCommand {
         if (!sender.hasPermission("watchdog.staff")) {
             sender.sendMessage(color(plugin.getConfig().getString("messages.no-permission",
                     "{prefix}&cNo permission.").replace("{prefix}",
-                    plugin.getConfig().getString("prefix", "&6[WatchDog] "))));
+                    plugin.getConfig().getString("prefix", "&0&l[PE&7RPLEX&8ION] "))));
             return true;
         }
 
         if (args.length < 1) {
-            sender.sendMessage(color("&6[WatchDog] &eUsage: /watchdog combat <player>"));
+            sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &eUsage: /perplexion combat <player>"));
             return true;
         }
 
         Player target = Bukkit.getPlayerExact(args[0]);
         if (target == null) {
-            sender.sendMessage(color("&6[WatchDog] &cPlayer not found or offline: &f" + args[0]));
+            sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &cPlayer not found or offline: &f" + args[0]));
             return true;
         }
 
         if (plugin.combat() == null) {
-            sender.sendMessage(color("&6[WatchDog] &cCombat analyzer is not available."));
+            sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &cCombat analyzer is not available."));
             return true;
         }
 
         CombatEvidence evidence = plugin.combat().getEvidence(target.getUniqueId());
         if (evidence == null) {
-            sender.sendMessage(color("&6[WatchDog] &cNo combat evidence recorded for &f" + target.getName() + "&c."));
+            sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &cNo combat evidence recorded for &f" + target.getName() + "&c."));
             return true;
         }
 
-        sender.sendMessage(color("&6[WatchDog] &eCombat evidence for &f" + target.getName()));
+        sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &eCombat evidence for &f" + target.getName()));
         sender.sendMessage(color("&7Buffer: &f" + format(evidence.getBuffer())));
         sender.sendMessage(color("&7Classifications (&f" + evidence.getTotalSamples() + "&7): &f"
                 + summarizeClassifications(evidence.getRecentClassifications())));

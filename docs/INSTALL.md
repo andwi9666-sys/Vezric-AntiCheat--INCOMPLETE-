@@ -1,80 +1,107 @@
-# Installation Guide
+# Installation Guide — Perplexion AntiCheat 1.2.0
+
+New-buyer walkthrough with screenshots-level detail: [BUYER_SETUP_GUIDE.md](BUYER_SETUP_GUIDE.md).
+This page is the operator reference.
 
 ## 1. Server requirements
 
 | Requirement | Version |
 |-------------|---------|
-| Server | Spigot or Paper **1.8.8** |
+| Server | Spigot or Paper **1.8.8** (only supported line) |
 | Java | 8+ |
-| PacketEvents | 2.x build compatible with 1.8.8 (pin the version you test) |
+| PacketEvents | **2.12.x** (separate plugin, hard dependency) |
 
 ## 2. Folder layout
 
 ```
 server/
   plugins/
-    packetevents-<version>.jar
-    VezAntiCheat-1.1.0.jar
-  plugins/VezAntiCheat/
-    config.yml          # generated on first run
-    tiers/              # per-check tier YAML
+    packetevents-spigot-2.12.x.jar
+    Perplexion-1.2.0.jar
+  plugins/Perplexion/
+    config.yml          # generated on first run (config-version 18)
+    tiers/              # per-check tier YAML (characteristics/prism/simulation/prediction)
+    punishments.yml     # marks, ban counts, recent punishments
+    banwave.yml         # queued punishments
+    debug/              # /perplexion exportdebug output
 ```
 
 ## 3. First boot
 
-1. Start the server with PacketEvents + VezAntiCheat.
-2. Confirm console shows PacketEvents ready and VezAntiCheat enabled.
-3. Run `/vez status` — all green before going live.
+1. Start the server with PacketEvents + Perplexion installed. **Always a full
+   restart** — never Bukkit `/reload` or PlugMan: packet hooks cannot re-inject
+   into live connections.
+2. Console must show the startup banner:
+   `Perplexion enabled. PacketEvents=true tierChecks=… packetHooks=true safetyMode=BANWAVE`
+3. Run `/perplexion status` (aliases `/pe`, `/vez`) — packet hooks true,
+   punishment mode shown, TPS healthy.
 
-## 4. Choose a profile
+## 4. Upgrading from VezAntiCheat 1.1.x
+
+- The data folder moves from `plugins/VezAntiCheat/` to `plugins/Perplexion/`.
+  Copy `punishments.yml` and `banwave.yml` across if you want to keep marks,
+  ban counts, and the queued banwave.
+- config-version bumps 17 → 18: your old config is preserved as
+  `config.yml.old` and a fresh one is generated. Re-apply custom values by hand
+  or re-apply your profile.
+- `punish.watchdog.*` keys still work but new configs use
+  `punish.announcements.*`. **Set `punish.announcements.appeal-url` to your own
+  appeal page** — it ships as a placeholder.
+- `/vez` keeps working as an alias; `/watchdog` and `/wd` are removed.
+  `watchdog.*` permissions are still honored.
+
+## 5. Choose a profile
 
 ```
-/vez profile aggressive   # competitive Pot/HCF/UHC (recommended)
-/vez profile balanced     # general PvP
-/vez profile lenient      # high-ping / casual
+/perplexion profile balanced     # shipped default — general PvP networks
+/perplexion profile lenient      # 150ms+ ping, casual hubs, Bedrock-heavy
+/perplexion profile aggressive   # competitive Pot/HCF/UHC — staging sign-off required
 ```
 
-| Profile | When to use |
-|---------|-------------|
-| `aggressive` | Competitive Pot/HCF/UHC, low-latency arenas |
-| `balanced` | General PvP networks |
-| `lenient` | 150ms+ ping, casual hubs |
+Profiles merge over jar defaults — keys a profile omits are never dropped.
+Applying creates a timestamped `config.yml.bak-*` and reloads automatically.
+Selection guidance and the exact value differences: [PROFILE_RECOMMENDATIONS.md](PROFILE_RECOMMENDATIONS.md).
+Competitive shadow → enable workflow: [competitive-tuning.md](competitive-tuning.md).
 
-Profiles merge over jar defaults — v1.1 keys (`license`, `vehicle`, `exemption-caps`) are never dropped.
+## 6. Choose a punishment safety mode
 
-Competitive shadow → enable workflow: [competitive-tuning.md](competitive-tuning.md)
+`punish.safety-mode` in config.yml: `silent` → `alerts-only` → `mitigation` →
+`banwave` (default) → `instant` (never a default). Recommended first week:
+`alerts-only` or `mitigation`, stepping up to `banwave` once alerts look clean.
+Run `/perplexion recommendations` after a day of traffic for data-driven advice.
 
-## 5. Staff setup
+## 7. Staff setup
 
-- Grant `vez.staff` for `/flags` and `/vez verbose`.
-- Grant `vez.admin` for `/vez profile`, `/vez reload`, `/vez tune`.
-- Optional bypass: `vez.bypass` (do not grant to players).
+- Grant `vez.staff` for `/alerts`, `/flags`, `/perplexion verbose|trace|info`.
+- Grant `vez.admin` for `/perplexion profile|reload|tune|on|off`.
+- `vez.bypass` fully exempts a player — never grant it to regular players.
 
-## 6. Shadow mode tuning
+## 8. Before production punishments
 
-Before enabling punishments on a live network:
+Run the full [STAGING_TEST_CHECKLIST.md](STAGING_TEST_CHECKLIST.md) on a staging
+server — including the 1.2.0 PrismAutoClick shadow-soak — and record results in
+[staging-results.md](staging-results.md). False bans caused by enabling
+`aggressive`/`instant` without staging are excluded from support and refunds
+(see [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md) §7).
 
-1. Set suspicious checks to `shadow: true` in `plugins/VezAntiCheat/tiers/*.yml`.
-2. Run staging scenarios from [testing-plan.md](testing-plan.md) §5.
-3. Record results in [staging-results.md](staging-results.md).
-4. Run 1–2 week FP soak per [fp-soak-protocol.md](fp-soak-protocol.md).
+## 9. Performance sampling
 
-## 7. Performance benchmarking
-
-Enable sampling for benchmark runs only:
+Off by default (zero overhead). For benchmark runs only:
 
 ```yaml
 diagnostics:
   perf-sampling-enabled: true
 ```
 
-Run scenarios in [performance-benchmark.md](performance-benchmark.md), then disable in production.
+Then `/perplexion perf`, record per [performance-benchmark.md](performance-benchmark.md),
+and disable again in production.
 
-## 8. Licensing (marketplace + direct sales)
+## 10. Licensing (marketplace + direct sales)
 
 ### Marketplace (Polymart / BuiltByBit)
 
-Ship the standard jar. Leave license disabled — the platform handles keys:
+Ship the standard jar. Leave the license gate disabled — the platform validates
+buyers:
 
 ```yaml
 license:
@@ -93,16 +120,16 @@ license:
   validation-url: ''   # optional HTTPS endpoint; offline format check if empty
 ```
 
-During grace, staff see a warning; checks disable only after grace expires if the key is invalid.
+During grace, staff see a warning; checks disable only after grace expires if
+the key is invalid. License scope and transfers: [LICENSE_POLICY.md](LICENSE_POLICY.md).
 
-See [DISTRIBUTION.md](DISTRIBUTION.md) for release packaging.
-
-## 9. Updates
+## 11. Updates
 
 ```yaml
 updates:
   check-enabled: true
-  manifest-url: 'https://your-cdn.example/vezac/manifest.json'
+  manifest-url: 'https://your-cdn.example/perplexion/manifest.json'
 ```
 
-Manifest JSON shape: `{"latest":"1.1.0","changelog":"https://..."}`
+Manifest JSON shape: `{"latest":"1.2.0","changelog":"https://..."}` — surfaced
+in `/perplexion status`.

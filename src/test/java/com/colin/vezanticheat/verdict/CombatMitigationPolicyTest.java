@@ -62,4 +62,14 @@ public class CombatMitigationPolicyTest {
         Assert.assertFalse(CombatMitigationPolicy.isCombatPlayerHitCheck("CharAimAssistA"));
         Assert.assertFalse(CombatMitigationPolicy.isCombatPlayerHitCheck("CharCriticalsA"));
     }
+
+    @Test
+    public void highSetbackThresholdDoesNotSetbackModerateConfidence() {
+        Assert.assertFalse(CombatMitigationPolicy.shouldPunitiveSetback(
+                "high", PrismMitigationPolicy.Confidence.MODERATE));
+        Assert.assertTrue(CombatMitigationPolicy.shouldPunitiveSetback(
+                "high", PrismMitigationPolicy.Confidence.HIGH));
+        Assert.assertTrue(CombatMitigationPolicy.shouldPunitiveSetback(
+                "high", PrismMitigationPolicy.Confidence.BLATANT));
+    }
 }

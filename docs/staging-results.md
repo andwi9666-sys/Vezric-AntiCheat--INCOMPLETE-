@@ -1,10 +1,11 @@
-# Staging Results — v1.1.0 Premium Launch (Competitive)
+# Staging Results — v1.1.1 Deep Tuning (Competitive)
 
 Record live validation from [`testing-plan.md`](testing-plan.md) §5 on a **1.8.8 Spigot/Paper** test server with **PacketEvents** installed.
 
-**Jar under test:** `target/VezAntiCheat-1.1.0.jar`  
-**Primary profile:** **aggressive** (`/vez profile aggressive`) — repeat lenient ping sweep + balanced spot-check  
+**Jar under test:** `target/Perplexion-1.2.0.jar`  
+**Primary profile:** **aggressive** (`/perplexion profile aggressive`) — repeat lenient ping sweep + balanced spot-check  
 **Tuning guide:** [`competitive-tuning.md`](competitive-tuning.md)  
+**Registry audit:** [`check-registry-audit.md`](check-registry-audit.md)  
 **Tester:** _operator name_  
 **Date range:** _YYYY-MM-DD → YYYY-MM-DD_
 
@@ -34,12 +35,13 @@ Record live validation from [`testing-plan.md`](testing-plan.md) §5 on a **1.8.
 | 8 | Reach rewound AABB | aggressive | | | _pending operator_ | 2.8–3.2 block trades |
 | 9 | Legit ping sweep 20–180ms | lenient | | | _pending operator_ | W-tap/blockhit/jump-crit |
 | 10 | Quit buffer purge | aggressive | | | _pending operator_ | |
-| 11 | `/vez reload` buffer flush | aggressive | | | _pending operator_ | |
+| 11 | `/perplexion reload` buffer flush | aggressive | | | _pending operator_ | |
 | 12 | Inventory-move silent aim signal | aggressive | | | _pending operator_ | |
+| 13 | InteractionLegality tune observable | aggressive | | | _pending operator_ | `/perplexion tune PrismInteractionLegality maxReach` changes cancel behavior |
 
 ## Sign-off
 
-- [ ] 12/12 **aggressive** scenarios **PASS**
+- [ ] 13/13 **aggressive** scenarios **PASS**
 - [ ] Lenient legit ping sweep **PASS** (scenario 9)
 - [ ] Aggressive catches cheat bots without mass FP on 7–14 day soak
 - [ ] Zero P0 false positives during soak

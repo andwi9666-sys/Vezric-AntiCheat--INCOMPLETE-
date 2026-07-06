@@ -29,6 +29,9 @@ abstract class AbstractTierRunner implements TierRunner {
 
     protected void dispatch(String event, TierAction action) {
         for (TierCheck check : checks) {
+            // A disabled check must not RUN at all — not just skip its flag. Otherwise a "disabled" check
+            // still executes and can take direct side-effects (e.g. CharSilentAim.blockAttack()).
+            if (!check.enabled()) continue;
             try {
                 action.run(check);
             } catch (Throwable t) {

@@ -1,10 +1,14 @@
 package com.colin.vezanticheat.utils;
 
 import com.colin.vezanticheat.data.PlayerData;
+import com.colin.vezanticheat.engine.EngineResult;
 import org.junit.Test;
 
 import java.util.UUID;
 
+import org.bukkit.util.Vector;
+
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -16,6 +20,27 @@ public class SpeedPatternUtilTest {
         data.setLastMoveDy(0.42D);
         assertTrue(SpeedPatternUtil.isYPortSlam(data, -0.76D));
         assertFalse(SpeedPatternUtil.isYPortSlam(data, -0.40D));
+    }
+
+    @Test
+    public void detectsYPortSlamFromEngineResult() {
+        PlayerData data = new PlayerData(UUID.randomUUID());
+        data.setLastMoveDy(0.42D);
+        EngineResult result = EngineResult.builder()
+                .actual(new Vector(0.28D, -0.76D, 0.0D))
+                .build();
+
+        assertTrue(SpeedPatternUtil.isYPortSlam(data, result));
+    }
+
+    @Test
+    public void horizontalRatioComparesActualToPredicted() {
+        EngineResult result = EngineResult.builder()
+                .predicted(new Vector(0.20D, 0.0D, 0.0D))
+                .actual(new Vector(0.30D, 0.0D, 0.0D))
+                .build();
+
+        assertEquals(1.5D, SpeedPatternUtil.horizontalRatio(result), 0.001D);
     }
 
     @Test

@@ -5,10 +5,12 @@ import com.colin.vezanticheat.banwave.BanwaveManager;
 import com.colin.vezanticheat.data.PlayerData;
 import com.colin.vezanticheat.utils.CheckAliasUtil;
 import com.colin.vezanticheat.utils.ConfigManager;
+import com.colin.vezanticheat.utils.MainThread;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
@@ -17,11 +19,12 @@ import java.io.File;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
 public class PunishmentManager {
@@ -29,9 +32,16 @@ public class PunishmentManager {
     private final VezAntiCheat plugin;
     private final File file;
     private YamlConfiguration yml;
-    private final Map<UUID, EvidenceState> evidenceStates = new HashMap<UUID, EvidenceState>();
-    private final Map<UUID, BlatantIncidentState> blatantBedNukerStates = new HashMap<UUID, BlatantIncidentState>();
+    // Mutated from per-connection Netty threads (check flag paths) and the main thread.
+    private final Map<UUID, EvidenceState> evidenceStates = new ConcurrentHashMap<UUID, EvidenceState>();
+    private final Map<UUID, BlatantIncidentState> blatantBedNukerStates = new ConcurrentHashMap<UUID, BlatantIncidentState>();
+    // In-memory mirrors of punishments.yml so Netty threads never touch YamlConfiguration.
+    private final Map<UUID, Integer> banCounts = new ConcurrentHashMap<UUID, Integer>();
+    private final Map<UUID, Long> markTimes = new ConcurrentHashMap<UUID, Long>();
+    // Main-thread only (punishment execution is marshaled there).
     private final Deque<Long> recentPunishmentTimes = new ArrayDeque<Long>();
+    private final Object saveLock = new Object();
+    private final AtomicBoolean savePending = new AtomicBoolean(false);
     private BukkitTask announcementTask;
 
     public PunishmentManager(VezAntiCheat plugin) {
@@ -58,17 +68,81 @@ public class PunishmentManager {
                 recentPunishmentTimes.addLast(time.longValue());
             }
         }
+
+        banCounts.clear();
+        ConfigurationSection bansSection = yml.getConfigurationSection("bans");
+        if (bansSection != null) {
+            for (String key : bansSection.getKeys(false)) {
+                try {
+                    banCounts.put(UUID.fromString(key), bansSection.getInt(key, 0));
+                } catch (IllegalArgumentException ex) {
+                    plugin.getLogger().warning("PunishmentManager: skipping malformed ban entry '" + key + "'");
+                }
+            }
+        }
+        markTimes.clear();
+        ConfigurationSection marksSection = yml.getConfigurationSection("marks");
+        if (marksSection != null) {
+            for (String key : marksSection.getKeys(false)) {
+                try {
+                    markTimes.put(UUID.fromString(key), marksSection.getLong(key, 0L));
+                } catch (IllegalArgumentException ex) {
+                    plugin.getLogger().warning("PunishmentManager: skipping malformed mark entry '" + key + "'");
+                }
+            }
+        }
     }
 
     private void save() {
-        trimRecentPunishments(System.currentTimeMillis());
-        yml.set("recent-punishments", new ArrayList<Long>(recentPunishmentTimes));
-        try {
-            yml.save(file);
-        } catch (Exception ex) {
-            plugin.getLogger().log(Level.WARNING,
-                    "PunishmentManager: failed to save punishments.yml: " + ex.getMessage(), ex);
+        synchronized (saveLock) {
+            trimRecentPunishments(System.currentTimeMillis());
+            yml.set("recent-punishments", new ArrayList<Long>(recentPunishmentTimes));
+            yml.set("bans", null);
+            for (Map.Entry<UUID, Integer> entry : banCounts.entrySet()) {
+                yml.set("bans." + entry.getKey(), entry.getValue());
+            }
+            yml.set("marks", null);
+            for (Map.Entry<UUID, Long> entry : markTimes.entrySet()) {
+                yml.set("marks." + entry.getKey(), entry.getValue());
+            }
+            try {
+                yml.save(file);
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.WARNING,
+                        "PunishmentManager: failed to save punishments.yml: " + ex.getMessage(), ex);
+            }
         }
+    }
+
+    /**
+     * Persists punishments.yml without blocking the calling thread. Netty-thread
+     * writers coalesce into one save on the next tick; main-thread callers save inline.
+     */
+    private void scheduleSave() {
+        if (Bukkit.isPrimaryThread()) {
+            save();
+            return;
+        }
+        if (!savePending.compareAndSet(false, true)) return;
+        MainThread.run(plugin, new Runnable() {
+            @Override
+            public void run() {
+                savePending.set(false);
+                save();
+            }
+        });
+    }
+
+    /** Flushes pending state to disk. Call from plugin onDisable. */
+    public void flush() {
+        save();
+    }
+
+    /** Drops per-session evidence for a player. Call on quit; persistent marks/ban counts are kept. */
+    public void clearTransient(UUID uuid) {
+        if (uuid == null) return;
+        evidenceStates.remove(uuid);
+        blatantBedNukerStates.remove(uuid);
     }
 
     public void startAnnouncementTask() {
@@ -88,12 +162,13 @@ public class PunishmentManager {
         long now = System.currentTimeMillis();
         trimRecentPunishments(now);
         int count = recentPunishmentTimes.size();
-        String message = ChatColor.DARK_RED + "[WatchDogAnnouncement] "
-                + ChatColor.WHITE + "WatchDog AntiCheat has banned over "
+        // Hourly task: stay quiet when there is nothing to announce.
+        if (count <= 0) return;
+        String message = ChatColor.DARK_RED + "[Perplexion] "
+                + ChatColor.WHITE + "Perplexion has removed "
                 + count
-                + " within the past 24 hours! Please refrain from "
-                + ChatColor.DARK_RED + "cheating"
-                + ChatColor.WHITE + " to keep our enviornment safe, secure, and happy. If you notice somebody cheating, please report them using /wdr, /report, or /watchdogreport.";
+                + (count == 1 ? " player" : " players")
+                + " for cheating in the past 24 hours. If you suspect someone is cheating, report them with /report.";
         Bukkit.broadcastMessage(message);
     }
 
@@ -104,13 +179,14 @@ public class PunishmentManager {
 
     public int getBanCount(UUID uuid) {
         if (uuid == null) return 0;
-        return yml.getInt("bans." + uuid.toString(), 0);
+        Integer count = banCounts.get(uuid);
+        return count == null ? 0 : count.intValue();
     }
 
     public void setBanCount(UUID uuid, int count) {
         if (uuid == null) return;
-        yml.set("bans." + uuid.toString(), count);
-        save();
+        banCounts.put(uuid, count);
+        scheduleSave();
     }
 
     public int addBanCount(UUID uuid) {
@@ -121,24 +197,28 @@ public class PunishmentManager {
 
     public long getMarkTime(UUID uuid) {
         if (uuid == null) return 0L;
-        return yml.getLong("marks." + uuid.toString(), 0L);
+        Long when = markTimes.get(uuid);
+        return when == null ? 0L : when.longValue();
     }
 
     public void setMarkTime(UUID uuid, long when) {
         if (uuid == null) return;
-        yml.set("marks." + uuid.toString(), when);
-        save();
+        markTimes.put(uuid, when);
+        scheduleSave();
     }
 
     public void clearMark(UUID uuid) {
         if (uuid == null) return;
-        yml.set("marks." + uuid.toString(), null);
-        save();
+        markTimes.remove(uuid);
+        scheduleSave();
     }
 
     public boolean handleViolation(Player player, PlayerData data, String checkName, String category, double checkVl) {
         if (player == null || data == null) return false;
         if (!plugin.cfg().punishEnabled()) return false;
+        // Safety-mode gate: only banwave/instant modes may queue or execute punishments.
+        PunishmentMode mode = plugin.cfg().punishSafetyMode();
+        if (!mode.punishmentsEnabled()) return false;
         if (PlayerData.bypass(player) || player.isOp()) return false;
 
         String publicCheckName = CheckAliasUtil.displayName(checkName, category);
@@ -150,8 +230,9 @@ public class PunishmentManager {
         long now = System.currentTimeMillis();
         EvidenceState state = evidenceStates.get(uuid);
         if (state == null) {
-            state = new EvidenceState();
-            evidenceStates.put(uuid, state);
+            EvidenceState fresh = new EvidenceState();
+            EvidenceState raced = evidenceStates.putIfAbsent(uuid, fresh);
+            state = raced != null ? raced : fresh;
         }
         state.record(now, checkName);
 
@@ -173,7 +254,9 @@ public class PunishmentManager {
         if (!marked) return false;
         if (snapshot.queueScore < plugin.cfg().punishQueueScore()) return false;
 
-        if ("IMMEDIATE".equals(plugin.cfg().punishExecutionType())) {
+        // execution.type IMMEDIATE only applies in INSTANT mode; BANWAVE mode force-queues
+        // so a misconfigured execution type cannot produce surprise instant bans.
+        if ("IMMEDIATE".equals(plugin.cfg().punishExecutionType()) && mode.immediateAllowed()) {
             return executeImmediate(player, publicCategory, null, null, null, publicCheckName);
         }
 
@@ -211,10 +294,38 @@ public class PunishmentManager {
                 || (highConfidence && severeCheckVl && enoughHotChecks);
     }
 
-    public boolean executeQueuedPunishment(BanwaveManager.Entry entry, String overrideType,
-                                           Integer overrideTime, String overrideTimeform, boolean announceToSender) {
+    public boolean executeQueuedPunishment(final BanwaveManager.Entry entry, final String overrideType,
+                                           final Integer overrideTime, final String overrideTimeform,
+                                           final boolean announceToSender) {
         if (entry == null || entry.getUuid() == null) return false;
         if (!plugin.cfg().punishEnabled()) return false;
+
+        // Kick, command dispatch, broadcast, and file save are main-thread API. Check flags
+        // arrive on Netty threads, so defer execution there; main-thread callers run inline.
+        if (!Bukkit.isPrimaryThread()) {
+            MainThread.run(plugin, new Runnable() {
+                @Override
+                public void run() {
+                    executeQueuedPunishment(entry, overrideType, overrideTime, overrideTimeform, announceToSender);
+                }
+            });
+            return true; // scheduled for next tick
+        }
+
+        // Never punish during server lag: a lag spike both degrades the evidence the flag
+        // was built on and makes a wrong ban harder to defend. Defer, never drop.
+        if (plugin.cfg().punishLagGateEnabled() && plugin.tps() != null
+                && plugin.tps().getTps() < plugin.tierCfg().minTps()) {
+            BanwaveManager banwave = plugin.getBanwaveManager();
+            if (banwave != null) {
+                banwave.requeueWithDelay(entry, plugin.cfg().punishLagGateRetryMs());
+                plugin.getLogger().info("Punishment for " + entry.getName()
+                        + " deferred " + (plugin.cfg().punishLagGateRetryMs() / 1000L)
+                        + "s: TPS " + String.format(java.util.Locale.ROOT, "%.1f", plugin.tps().getTps())
+                        + " below lag gate.");
+                return false;
+            }
+        }
 
         OfflinePlayer offline = Bukkit.getOfflinePlayer(entry.getUuid());
         String playerName = entry.getName();
@@ -295,27 +406,32 @@ public class PunishmentManager {
         long now = System.currentTimeMillis();
         BlatantIncidentState state = blatantBedNukerStates.get(uuid);
         if (state == null) {
-            state = new BlatantIncidentState();
-            blatantBedNukerStates.put(uuid, state);
+            BlatantIncidentState fresh = new BlatantIncidentState();
+            BlatantIncidentState raced = blatantBedNukerStates.putIfAbsent(uuid, fresh);
+            state = raced != null ? raced : fresh;
         }
 
-        long dedupeMs = plugin.cfg().blatantBedNukerDedupeMs();
-        if (state.lastIncidentMs > 0L && (now - state.lastIncidentMs) < dedupeMs) {
-            return false;
-        }
+        boolean thresholdReached;
+        synchronized (state) {
+            long dedupeMs = plugin.cfg().blatantBedNukerDedupeMs();
+            if (state.lastIncidentMs > 0L && (now - state.lastIncidentMs) < dedupeMs) {
+                return false;
+            }
 
-        long windowMs = plugin.cfg().blatantBedNukerWindowSeconds() * 1000L;
-        state.lastIncidentMs = now;
-        state.timestamps.addLast(now);
-        while (!state.timestamps.isEmpty()) {
-            Long first = state.timestamps.peekFirst();
-            if (first == null || (now - first.longValue()) <= windowMs) break;
-            state.timestamps.removeFirst();
+            long windowMs = plugin.cfg().blatantBedNukerWindowSeconds() * 1000L;
+            state.lastIncidentMs = now;
+            state.timestamps.addLast(now);
+            while (!state.timestamps.isEmpty()) {
+                Long first = state.timestamps.peekFirst();
+                if (first == null || (now - first.longValue()) <= windowMs) break;
+                state.timestamps.removeFirst();
+            }
+            thresholdReached = state.timestamps.size() >= plugin.cfg().blatantBedNukerIncidents();
         }
 
         setMarkTime(uuid, now);
 
-        if (state.timestamps.size() >= plugin.cfg().blatantBedNukerIncidents()) {
+        if (thresholdReached) {
             BanwaveManager banwave = plugin.getBanwaveManager();
             if (banwave != null) {
                 banwave.removeUuid(uuid);
@@ -525,20 +641,22 @@ public class PunishmentManager {
     }
 
     private static final class EvidenceState {
+        // Methods synchronized: a player's flags arrive on their Netty thread, but
+        // main-thread paths (commands, Bukkit-event checks) can touch the same state.
         private final Deque<Long> timestamps = new ArrayDeque<Long>();
-        private long lastQueueMs;
+        private volatile long lastQueueMs;
 
-        void record(long now, String checkName) {
+        synchronized void record(long now, String checkName) {
             timestamps.addLast(now);
             while (timestamps.size() > 40) timestamps.removeFirst();
         }
 
-        int countRecent(long now, long windowMs) {
+        synchronized int countRecent(long now, long windowMs) {
             trim(now, windowMs);
             return timestamps.size();
         }
 
-        boolean withinFastWindow(long now, long windowMs) {
+        synchronized boolean withinFastWindow(long now, long windowMs) {
             trim(now, windowMs);
             if (timestamps.isEmpty()) return false;
             Long first = timestamps.peekFirst();

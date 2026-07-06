@@ -48,6 +48,12 @@ public final class PredictionFly extends AbstractMovementTierCheck {
                 return;
             }
 
+            if (com.colin.vezanticheat.utils.FallArcTracker.shouldSuppressLegitFallMovement(plugin, data, nowMs)) {
+                data.resetEngineAirState();
+                cool(p, 0.45D);
+                return;
+            }
+
             Vector actual = er.actual == null ? new Vector() : er.actual;
             double dy = actual.getY();
             double distH = Math.hypot(actual.getX(), actual.getZ());

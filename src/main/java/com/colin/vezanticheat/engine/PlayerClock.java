@@ -3,6 +3,7 @@ package com.colin.vezanticheat.engine;
 import com.colin.vezanticheat.VezAntiCheat;
 import com.colin.vezanticheat.data.PlayerData;
 import com.colin.vezanticheat.utils.MovementEnforcement;
+import com.colin.vezanticheat.utils.PingUtil;
 import org.bukkit.entity.Player;
 
 /**
@@ -44,9 +45,15 @@ public final class PlayerClock {
         long elapsedMs = (nano - state.nanoAnchor) / 1_000_000L;
         long drift = state.balanceMs - elapsedMs;
 
-        long debitCap = plugin.getConfig().getLong("engine.player-clock.ledger-debit-cap-ms", 20L);
-        long ledgerCap = plugin.getConfig().getLong("engine.player-clock.ledger-cap-ms", 2000L);
-        applyDriftToLedger(state, drift, debitCap, ledgerCap);
+        // TimerLimit (Grim analogue): above an abusive ping, do not let the drift ledger accrue — extreme
+        // latency makes the clock estimate unreliable and could be farmed or false-flag. Re-anchor only.
+        long abuseMs = plugin.getConfig().getLong("engine.player-clock.timer-limit-abuse-ms", 1000L);
+        int ping = PingUtil.getPing(player);
+        if (ping <= 0 || ping <= abuseMs) {
+            long debitCap = plugin.getConfig().getLong("engine.player-clock.ledger-debit-cap-ms", 20L);
+            long ledgerCap = plugin.getConfig().getLong("engine.player-clock.ledger-cap-ms", 2000L);
+            applyDriftToLedger(state, drift, debitCap, ledgerCap);
+        }
 
         state.balanceMs = elapsedMs;
         state.nanoAnchor = nano;
@@ -104,6 +111,38 @@ public final class PlayerClock {
         return state.cumulativeDriftMs;
     }
 
+    /**
+     * Accrue the SLOW-timer (negative) ledger from a position-packet interval while the player is moving.
+     *
+     * <p>A normal interval is {@link #TICK_MS} (~50ms). A sustained slower interval — the client
+     * withholding movement ticks (slow timer / lag-switch) — accrues into the ledger, while on-rate
+     * ticks bleed it off. Each tick's contribution is capped so a single lag spike cannot spike the
+     * ledger, and the bleed-off makes brief jitter cancel. Only call this on movement-bearing ticks
+     * (the {@code NegativeTimer} check gates on a fresh position move + a checked prediction) so that
+     * a stationary player sending flying-only packets never accrues a false slow-timer.</p>
+     *
+     * @return the new negative ledger value (ms), clamped to {@code [0, ledgerCap]}
+     */
+    public static long accrueNegativeInterval(PlayerClockState state, long intervalMs, long perTickTolerance,
+                                              long perTickCap, long bleedPerCleanTick, long ledgerCap) {
+        if (state == null) return 0L;
+        long excess = intervalMs - TICK_MS;
+        if (excess > perTickTolerance) {
+            state.negativeLedgerMs += Math.min(excess, perTickCap);
+        } else {
+            state.negativeLedgerMs = Math.max(0L, state.negativeLedgerMs - bleedPerCleanTick);
+        }
+        if (state.negativeLedgerMs < 0L) state.negativeLedgerMs = 0L;
+        if (ledgerCap > 0L && state.negativeLedgerMs > ledgerCap) state.negativeLedgerMs = ledgerCap;
+        return state.negativeLedgerMs;
+    }
+
+    /** Clear the slow-timer ledger (called after a NegativeTimer flag so it cannot immediately re-flag). */
+    public static void resetNegative(PlayerData data) {
+        if (data == null) return;
+        data.getPlayerClockState().negativeLedgerMs = 0L;
+    }
+
     /** Pause ledger accrual across the next ack (called on teleport so corrections don't accrue). */
     public static void onTeleport(VezAntiCheat plugin, PlayerData data) {
         if (data == null) return;
@@ -157,6 +196,8 @@ public final class PlayerClock {
         public long lastSyncMs;
         /** Persistent cumulative drift ledger (ms). NOT reset by teleports or movement gaps. */
         public long cumulativeDriftMs;
+        /** Persistent SLOW-timer (negative) ledger (ms) — sustained sub-rate position packets while moving. */
+        public long negativeLedgerMs;
         /** When true, the next ack pauses ledger accrual (set after a teleport). */
         public boolean teleportPause;
 
@@ -166,6 +207,7 @@ public final class PlayerClock {
             lastFlyingMs = 0L;
             lastSyncMs = 0L;
             cumulativeDriftMs = 0L;
+            negativeLedgerMs = 0L;
             teleportPause = false;
         }
     }

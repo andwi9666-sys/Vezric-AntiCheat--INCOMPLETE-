@@ -50,6 +50,7 @@ public final class TierCheckManager {
     public void clearBuffers() {
         TierCheck.clearAll();
         com.colin.vezanticheat.checks.Check.clearAll();
+        com.colin.vezanticheat.tier.prism.scaffold.ScaffoldEngine.clearAll();
     }
 
     public int count() { return registry.count(); }
@@ -59,6 +60,10 @@ public final class TierCheckManager {
     public MitigationPolicy mitigation() { return mitigation; }
 
     private void forEachRunner(TierRunnerAction action) {
+        // Master kill-switch (/vez off → anticheat.enabled=false): skip ALL tier-check dispatch entirely
+        // (Prism, Characteristics/heuristics, Simulation, Prediction). This stops not just flags but the
+        // checks running at all — so direct actions like blockAttack()/packet cancels never fire either.
+        if (plugin.tierCfg() == null || !plugin.tierCfg().enabled()) return;
         for (TierRunner runner : runners) {
             action.run(runner);
         }
@@ -128,8 +133,8 @@ public final class TierCheckManager {
         String playerName = flagged != null ? flagged.getName() : "unknown";
         String dataTier = tier != null ? PrismCheckLabels.polarDataTier(tier) : "Unknown";
         String fmt = plugin.getConfig().getString("flags.format",
-                "{prefix}&e{player} &7failed &c{check} &8[&7{tier}&8] &7(&fVL {vl}&7)");
-        String prefix = plugin.getConfig().getString("prefix", "&6[WatchDog] ");
+                "{prefix}&c{player} &7failed &4{check} &7[{tier}] (&4VL {vl}&7)");
+        String prefix = plugin.getConfig().getString("prefix", "&0&l[PE&7RPLEX&8ION] ");
         String msg = ChatColor.translateAlternateColorCodes('&', fmt
                 .replace("{prefix}", ChatColor.translateAlternateColorCodes('&', prefix))
                 .replace("{player}", playerName)
@@ -145,34 +150,49 @@ public final class TierCheckManager {
         String client = flaggedData != null ? flaggedData.getClientVersion() : "Unknown";
         String serverName = plugin.getServer().getName();
 
-        PolarFlagRecord record = new PolarFlagRecord(
+        final PolarFlagRecord record = new PolarFlagRecord(
                 flagged != null ? flagged.getUniqueId() : null,
                 playerName, polarCheck, tier, dataTier, vl, debug, now, ping, brand, client, tps, serverName);
+        // History append stays on the calling thread so record order matches detection order.
         plugin.polarFlags().record(record);
-        FlagsGui.refreshOpen(plugin);
 
-        for (Player staff : Bukkit.getOnlinePlayers()) {
-            if (!staff.hasPermission("vez.staff")) continue;
-            PlayerData d = plugin.data().get(staff);
-            if (!d.isFlagsEnabled()) continue;
-            staff.sendMessage(msg);
-            if (d.isVerboseMode()) {
-                boolean includeDebug = d.isDebugMode() && debug != null && !debug.isEmpty();
-                for (String line : PolarStaffAlertUtil.verboseChatLines(record, now, includeDebug)) {
-                    staff.sendMessage(line);
+        // Flags arrive on Netty threads; GUI refresh and player iteration are main-thread API.
+        final String alertMsg = msg;
+        final String alertDebug = debug;
+        final long alertNow = now;
+        com.colin.vezanticheat.utils.MainThread.run(plugin, new Runnable() {
+            @Override
+            public void run() {
+                FlagsGui.refreshOpen(plugin);
+                for (Player staff : Bukkit.getOnlinePlayers()) {
+                    if (!staff.hasPermission("vez.staff")) continue;
+                    PlayerData d = plugin.data().get(staff);
+                    if (!d.isFlagsEnabled()) continue;
+                    staff.sendMessage(alertMsg);
+                    if (d.isVerboseMode()) {
+                        boolean includeDebug = d.isDebugMode() && alertDebug != null && !alertDebug.isEmpty();
+                        for (String line : PolarStaffAlertUtil.verboseChatLines(record, alertNow, includeDebug)) {
+                            staff.sendMessage(line);
+                        }
+                    }
                 }
             }
-        }
+        });
     }
 
-    public void verboseToStaff(String playerName, String checkName, String reason) {
-        for (Player staff : Bukkit.getOnlinePlayers()) {
-            if (!staff.hasPermission("vez.staff")) continue;
-            PlayerData d = plugin.data().get(staff);
-            if (!d.isVerboseMode()) continue;
-            staff.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&',
-                    "&8[&7V&8] &e" + playerName + " &8| &b" + checkName + " &8| &7" + reason));
-        }
+    public void verboseToStaff(final String playerName, final String checkName, final String reason) {
+        com.colin.vezanticheat.utils.MainThread.run(plugin, new Runnable() {
+            @Override
+            public void run() {
+                for (Player staff : Bukkit.getOnlinePlayers()) {
+                    if (!staff.hasPermission("vez.staff")) continue;
+                    PlayerData d = plugin.data().get(staff);
+                    if (!d.isVerboseMode()) continue;
+                    staff.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&',
+                            "&8[&7V&8] &e" + playerName + " &8| &b" + checkName + " &8| &7" + reason));
+                }
+            }
+        });
     }
 
     public void verboseFlagToStaff(Player flagged, String polarCheck, CheckTier tier, long checkVl, String debug) {
@@ -180,14 +200,19 @@ public final class TierCheckManager {
     }
 
     /** @deprecated use {@link #verboseFlagToStaff(Player, String, CheckTier, long, String)} */
-    public void verboseFlagToStaff(String playerName, String checkName, long checkVl, String debug) {
-        for (Player staff : Bukkit.getOnlinePlayers()) {
-            if (!staff.hasPermission("vez.staff")) continue;
-            PlayerData d = plugin.data().get(staff);
-            if (!d.isVerboseMode()) continue;
-            staff.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&',
-                    "&8[&7V&8] &e" + playerName + " &8| &b" + checkName + " &8| &7&c[FLAG] &fVL=" + checkVl));
-        }
+    public void verboseFlagToStaff(final String playerName, final String checkName, final long checkVl, String debug) {
+        com.colin.vezanticheat.utils.MainThread.run(plugin, new Runnable() {
+            @Override
+            public void run() {
+                for (Player staff : Bukkit.getOnlinePlayers()) {
+                    if (!staff.hasPermission("vez.staff")) continue;
+                    PlayerData d = plugin.data().get(staff);
+                    if (!d.isVerboseMode()) continue;
+                    staff.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&',
+                            "&8[&7V&8] &e" + playerName + " &8| &b" + checkName + " &8| &7&c[FLAG] &fVL=" + checkVl));
+                }
+            }
+        });
     }
 
     @FunctionalInterface

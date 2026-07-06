@@ -67,8 +67,12 @@ public final class CharVelocityPattern extends TierCheck {
                 return;
             }
 
-            if (blatant) {
-                VelocityEnforcement.onVelocityFlag(plugin, p, data, result, name());
+        if (blatant) {
+            if (!data.tryClaimKnockbackFlag(name(), nowMs, plugin.tierCfg().checkLong(name(), "kbDedupeMs", 350L))) {
+                coolBuffer(p, 1);
+                return;
+            }
+            VelocityEnforcement.onVelocityFlag(plugin, p, data, result, name());
                 fail(p, data, plugin.tierCfg().checkDouble(name(), "failVl", 1.0),
                         buildDebug(result, violations));
                 resetBuffer(p);
@@ -79,6 +83,10 @@ public final class CharVelocityPattern extends TierCheck {
             if (result.reverseKnockback && result.reducedHorizontal) gain += 1;
 
             if (incrementBuffer(p, gain)) {
+                if (!data.tryClaimKnockbackFlag(name(), nowMs, plugin.tierCfg().checkLong(name(), "kbDedupeMs", 350L))) {
+                    resetBuffer(p);
+                    return;
+                }
                 fail(p, data, plugin.tierCfg().checkDouble(name(), "failVl", 1.0),
                         buildDebug(result, violations));
                 VelocityEnforcement.onVelocityFlag(plugin, p, data, result, name());

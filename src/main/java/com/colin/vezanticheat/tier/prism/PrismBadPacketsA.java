@@ -16,8 +16,24 @@ public final class PrismBadPacketsA extends PrismBadPacketCheck {
         if (p == null || data == null || data.isTeleportExempt()) return;
 
         if (Float.isNaN(yaw) || Float.isNaN(pitch) || Float.isInfinite(yaw) || Float.isInfinite(pitch)) {
-            fail(p, data, plugin.tierCfg().checkDouble(name(), "blatantFailVl", 1.8D),
-                    "invalidRot nanOrInfinite yaw=" + yaw + " pitch=" + pitch);
+            // Two-strike rule: a single corrupt packet (proxy/network mangling) must not
+            // flag alone. Repeats inside the window are no accident.
+            int strikesToFlag = Math.max(1, plugin.tierCfg().checkInt(name(), "nanStrikesToFlag", 2));
+            long windowMs = plugin.tierCfg().checkLong(name(), "nanStrikeWindowMs", 30000L);
+            long now = System.currentTimeMillis();
+            int strikes = (data.getLastNanRotationMs() > 0L && (now - data.getLastNanRotationMs()) <= windowMs)
+                    ? data.getNanRotationStrikes() + 1
+                    : 1;
+            data.setNanRotationStrikes(strikes);
+            data.setLastNanRotationMs(now);
+            if (strikes >= strikesToFlag) {
+                data.setNanRotationStrikes(0);
+                fail(p, data, plugin.tierCfg().checkDouble(name(), "blatantFailVl", 1.8D),
+                        "invalidRot nanOrInfinite yaw=" + yaw + " pitch=" + pitch + " strikes=" + strikes);
+            } else {
+                plugin.tierChecks().verboseToStaff(p.getName(), name(),
+                        "nan/inf rotation strike " + strikes + "/" + strikesToFlag + " (no flag yet)");
+            }
             return;
         }
 

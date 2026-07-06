@@ -25,7 +25,7 @@ public class BanwaveCommand implements CommandExecutor {
     }
 
     private String pref() {
-        return c(plugin.getConfig().getString("prefix", "&6[Vez] &r"));
+        return c(plugin.getConfig().getString("prefix", "&0&l[PE&7RPLEX&8ION] &r"));
     }
 
     private void usage(CommandSender s) {

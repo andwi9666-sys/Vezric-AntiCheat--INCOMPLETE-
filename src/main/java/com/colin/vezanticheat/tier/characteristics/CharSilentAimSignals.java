@@ -1,6 +1,7 @@
 package com.colin.vezanticheat.tier.characteristics;
 
 import com.colin.vezanticheat.VezAntiCheat;
+import com.colin.vezanticheat.combat.math.RequiredRotationUtil;
 import com.colin.vezanticheat.data.PlayerData;
 import com.colin.vezanticheat.utils.AimAssistUtil;
 import com.colin.vezanticheat.utils.CombatUtil;
@@ -8,7 +9,13 @@ import org.bukkit.entity.Player;
 
 import java.util.Deque;
 
-/** Shared 8-signal silent-aim scoring utilities for Characteristics tier checks. */
+/**
+ * Shared silent-aim scoring utilities for Characteristics tier checks.
+ *
+ * <p>Holds the NEW transient-fingerprint scorers (snap-restore, impossible-velocity-onto-hitbox,
+ * center-lock, weighted fusion) alongside the preserved statistical scorers. Pure math, no hooks,
+ * never raises violations. Every method exercised by the JUnit tests keeps its exact body.
+ */
 public final class CharSilentAimSignals {
 
     private CharSilentAimSignals() {}
@@ -25,29 +32,94 @@ public final class CharSilentAimSignals {
         return Math.min(1.0D, excessBeyondAllowanceDeg / 18.0D);
     }
 
+    // ===================== NEW transient-fingerprint scorers =====================
+
+    /**
+     * Pure passthrough/normalizer for a {@code SilentAimAnalyzer} snap-restore severity. Lets the
+     * check and tests map an analyzer score into the fusion without importing analyzer internals.
+     */
+    public static double snapRestoreScore(double rawAnalyzerScore) {
+        return clamp01(rawAnalyzerScore);
+    }
+
+    /**
+     * Impossible-velocity-onto-hitbox -> score (signal B, incl. 180 snaps). 0 when the landing step
+     * velocity is within the ping-scaled snap threshold; otherwise ramps over a 600 deg/sec span.
+     */
+    public static double hitboxSnapVelocityScore(double velDegPerSec, int pingMs) {
+        double threshold = RequiredRotationUtil.snapAngularVelocityThreshold(pingMs);
+        if (velDegPerSec <= threshold) return 0.0D;
+        return Math.min(1.0D, (velDegPerSec - threshold) / 600.0D);
+    }
+
+    /**
+     * Center-lock (aim lands dead-center, not nearest point) combined with zero sub-degree jitter.
+     * Returns 0 unless BOTH the center margin and the jitter are unnaturally small; otherwise scales
+     * toward 1 as both shrink.
+     */
+    public static double centerLockScore(double avgCenterMarginDeg, double avgJitterDeg) {
+        if (avgCenterMarginDeg > 1.0D || avgJitterDeg > 0.05D) return 0.0D;
+        double marginPart = 1.0D - clamp01(avgCenterMarginDeg / 1.0D);
+        double jitterPart = 1.0D - clamp01(avgJitterDeg / 0.05D);
+        return clamp01(0.5D * marginPart + 0.5D * jitterPart);
+    }
+
+    /**
+     * Central weighted fusion of all seven silent-aim signals -> combinedScore in 0..1. Divides by a
+     * fixed denominator so no single weak signal can dominate. The CHECK (not this method) enforces
+     * the "&gt;=2 strong transient signals + 1 corroborating" rule, so this stays a pure helper tests
+     * can exercise deterministically.
+     */
+    public static double fuse(double snapRestore, double hitboxVel, double centerLock, double desync,
+                              double lattice, double exclusivity, double linearRamp) {
+        double weighted = clamp01(snapRestore) * 2.0D
+                + clamp01(hitboxVel) * 1.8D
+                + clamp01(centerLock) * 1.0D
+                + clamp01(desync) * 1.0D
+                + clamp01(lattice) * 1.0D
+                + clamp01(exclusivity) * 1.2D
+                + clamp01(linearRamp) * 0.8D;
+        // Fixed denominator (sum of weights) keeps the result in 0..1 and prevents single-signal dominance.
+        return clamp01(weighted / 8.8D);
+    }
+
+    /**
+     * Counts how many of the two STRONG transient signals exceed 0.30. The check requires this &gt;=2
+     * (OR a sustained snap-restore buffer) before flagging.
+     */
+    public static int strongSignalCount(double snapRestore, double hitboxVel) {
+        int n = 0;
+        if (snapRestore > 0.30D) n++;
+        if (hitboxVel > 0.30D) n++;
+        return n;
+    }
+
+    private static double clamp01(double v) {
+        if (v < 0.0D) return 0.0D;
+        if (v > 1.0D) return 1.0D;
+        return v;
+    }
+
+    // ===================== legacy aggregator (re-pointed at stored transient values) =====================
+
     public static double score(VezAntiCheat plugin, Player p, PlayerData data, long now) {
-        double s1 = angularScore(p, data);
-        double s2 = snapScore(data);
-        double s3 = resetScore(data);
-        double s4 = movementMismatchScore(data);
-        double s5 = centerScore(data);
-        double s6 = correlationScore(data);
-        double s7 = switchScore(data);
-        double s8 = cpsScore(data, now);
-        double composite = s1 * 1.5D + s2 * 2.0D + s3 * 1.5D + s4 * 1.0D
-                + s5 * 0.8D + s6 * 1.5D + s7 * 1.2D + s8 * 1.0D;
-        int active = 0;
-        if (s1 > 0.2D) active++;
-        if (s2 > 0.2D) active++;
-        if (s3 > 0.2D) active++;
-        if (s4 > 0.2D) active++;
-        if (s5 > 0.2D) active++;
-        if (s6 > 0.2D) active++;
-        if (s7 > 0.2D) active++;
-        if (s8 > 0.2D) active++;
-        if (active >= 3) composite *= 1.3D;
-        if (active >= 4) composite *= 1.15D;
-        return Math.min(1.0D, composite / 10.0D);
+        if (data == null) return 0.0D;
+        double snapRestore = data.getSilentLastSnapRestoreScore();
+        double hitboxVel = hitboxSnapVelocityScore(data.getSilentLastHitboxSnapVelDegPerSec(),
+                Math.max(0, com.colin.vezanticheat.utils.PingUtil.getPing(p)));
+        double centerLock = centerScore(data);
+        double desync = movementMismatchScore(data);
+        double lattice = aimAssistScore(data, "aimassista");
+        double exclusivity = correlationScore(data);
+        double linearRamp = 0.0D;
+        Deque<Double> centerErrs = data.getKillAuraACenterErrors();
+        if (centerErrs != null && centerErrs.size() >= 3) {
+            double[] errs = new double[centerErrs.size()];
+            int i = 0;
+            for (Double d : centerErrs) errs[i++] = d == null ? 0.0D : d;
+            linearRamp = com.colin.vezanticheat.utils.GcdLatticeAnalysis.distributedSnapRatio(errs);
+        }
+        return fuse(snapRestore, hitboxVel, centerLock, desync, lattice, exclusivity, linearRamp);
     }
 
     public static double angularScore(Player p, PlayerData data) {
@@ -61,7 +133,7 @@ public final class CharSilentAimSignals {
 
     public static double snapScore(PlayerData data) {
         if (data == null) return 0.0D;
-        return Math.min(1.0D, data.getKillAuraASnapRatio());
+        return Math.max(Math.min(1.0D, data.getKillAuraASnapRatio()), data.getSilentLastSnapRestoreScore());
     }
 
     public static double resetScore(PlayerData data) {

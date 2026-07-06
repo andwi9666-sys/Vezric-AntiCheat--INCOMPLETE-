@@ -24,6 +24,8 @@ public final class TierPunishmentExecutor {
         if (check.shadowEnabled()) return;
         if (checkVl < check.punishVl()) return;
         if (!plugin.getConfig().getBoolean("punish.enabled", true)) return;
+        // Safety-mode gate: silent/alerts-only/mitigation modes never reach a ban.
+        if (!plugin.cfg().punishSafetyMode().punishmentsEnabled()) return;
 
         String category = check.tier().name();
         plugin.punish().executeImmediate(player, category, null, null, null, check.publicName());

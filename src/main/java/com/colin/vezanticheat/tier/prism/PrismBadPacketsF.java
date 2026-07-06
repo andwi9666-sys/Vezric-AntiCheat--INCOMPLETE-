@@ -16,6 +16,12 @@ public final class PrismBadPacketsF extends PrismBadPacketCheck {
     public void onFlyingPacket(Player p, PlayerData data, long nowMs) {
         if (p == null || data == null) return;
         if (data.isTeleportExempt() || data.isVelocityExempt() || data.isBlockStateExempt()) return;
+        // Legit flight/hover legitimately holds position perfectly still, so the client streams
+        // positionless flying packets — that is normal flying, not a movement-cheat packet pattern.
+        if (p.isFlying() || p.getAllowFlight()) {
+            setLetterBuffer(data, 0);
+            return;
+        }
 
         if (plugin.tierCfg().gateByLag() && plugin.tps() != null && plugin.tps().getTps() < plugin.tierCfg().minTps()) {
             setLetterBuffer(data, 0);

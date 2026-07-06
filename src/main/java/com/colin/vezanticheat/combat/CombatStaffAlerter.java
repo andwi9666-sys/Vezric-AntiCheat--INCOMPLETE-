@@ -87,7 +87,7 @@ public final class CombatStaffAlerter {
     }
 
     String formatAlert(String playerName, double buffer, String reason, CombatAnalysisSettings settings) {
-        String prefix = plugin.getConfig().getString("prefix", "&6[WatchDog] ");
+        String prefix = plugin.getConfig().getString("prefix", "&0&l[PE&7RPLEX&8ION] ");
         String fmt = settings == null ? CombatAnalysisSettings.fromPlugin(plugin).getAlertFormat() : settings.getAlertFormat();
         String resolved = fmt
                 .replace("{prefix}", prefix)
@@ -203,7 +203,7 @@ public final class CombatStaffAlerter {
     String formatAlertForTest(String playerName, double buffer, String reason, CombatAnalysisSettings settings) {
         String fmt = settings == null ? DEFAULT_ALERT_FORMAT : settings.getAlertFormat();
         String resolved = fmt
-                .replace("{prefix}", "&6[WatchDog] ")
+                .replace("{prefix}", "&0&l[PE&7RPLEX&8ION] ")
                 .replace("{player}", playerName == null ? "unknown" : playerName)
                 .replace("{buffer}", formatBuffer(buffer))
                 .replace("{reason}", reason == null ? "unknown" : reason);

@@ -4,10 +4,13 @@ import com.colin.vezanticheat.VezAntiCheat;
 import com.colin.vezanticheat.data.PlayerData;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.protocol.player.User;
+import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.util.Vector;
 
 /**
  * Central movement enforcement: packet cancel + immediate client snap + server teleport sync.
@@ -87,12 +90,37 @@ public final class MovementEnforcement {
     }
 
     public static boolean executeSetback(VezAntiCheat plugin, Player player, PlayerData data, String reason) {
+        return executeSetback(plugin, player, data, reason, null);
+    }
+
+    /**
+     * GrimAC-faithful movement setback. Teleports to the last-valid-ground anchor and, when
+     * {@code prediction.setback.preserve-velocity} is on, re-sends the carried/knockback velocity as an
+     * EntityVelocity packet so a setback never eats knockback (Grim {@code SetBackData.velocity}). When
+     * {@code prediction.setback.simulate} is on, the anchor is advanced by one collided+frictioned tick of
+     * that velocity so the resync lands where the impulse carries the player.
+     *
+     * @param carriedOverride explicit velocity to preserve (e.g. the expected knockback for anti-KB
+     *                        correction); {@code null} derives it from the last-known-good velocity plus
+     *                        any fresh pending knockback/explosion.
+     */
+    public static boolean executeSetback(VezAntiCheat plugin, Player player, PlayerData data, String reason,
+                                         Vector carriedOverride) {
         if (plugin == null || player == null || data == null) return false;
         if (!plugin.getConfig().getBoolean("prediction.setback.enabled", true)) return false;
+        // SAFETY KILL-SWITCH: movement/velocity setback TELEPORTS are disabled by default. The prediction
+        // engine still detects and alerts (VL accrues), it just will not teleport the player. Re-enable with
+        // prediction.setback.enforce: true once the underlying movement prediction is verified false-positive
+        // free on the live server. (Key is absent from existing configs, so the safe default applies.)
+        if (!plugin.getConfig().getBoolean("prediction.setback.enforce", false)) return false;
         if (PlayerData.bypass(player)) return false;
         if (FallArcTracker.shouldSuppressLegitFallSetback(plugin, data, System.currentTimeMillis())) {
             return false;
         }
+        // Don't stack setbacks: if one is already pending (the client hasn't confirmed the teleport yet) or
+        // we're inside the teleport-exempt window, skip. Re-firing on the in-flight movement packets that
+        // arrive before the client processes the S08 is exactly what created the setback loop / desync.
+        if (data.isPendingSetback() || data.isTeleportExempt()) return false;
 
         Location target = SetbackUtil.resolveSetbackTarget(plugin, player, data);
         if (target == null || target.getWorld() == null) {
@@ -122,10 +150,12 @@ public final class MovementEnforcement {
             return false;
         }
 
-        final Location setback = target.clone();
+        Location setback = target.clone();
         setback.setWorld(player.getWorld());
-        setback.setYaw(player.getLocation().getYaw());
-        setback.setPitch(player.getLocation().getPitch());
+        // Use the client's last-sent look (thread-safe, current) so the S08 does not snap the head to a
+        // stale orientation from player.getLocation() on the packet thread.
+        setback.setYaw(data.getPacketYaw());
+        setback.setPitch(data.getPacketPitch());
 
         // Circuit breaker: if the player has been set back too many times in a short window,
         // do NOT teleport again (which spirals into a setback loop). Instead hard-freeze them by
@@ -147,6 +177,16 @@ public final class MovementEnforcement {
             return false;
         }
 
+        // GrimAC velocity preservation: build the velocity to carry through the setback (explicit override
+        // for anti-KB, else last-known-good momentum + any fresh pending knockback/explosion).
+        Vector setbackVel = buildSetbackVelocity(plugin, data, carriedOverride);
+
+        // Simulating setback: advance the anchor by one collided + frictioned tick of that velocity so the
+        // resync lands where the impulse carries the player rather than snapping to the raw anchor.
+        if (setbackVel != null && plugin.getConfig().getBoolean("prediction.setback.simulate", true)) {
+            setback = simulateSetbackPosition(data, setback, setbackVel);
+        }
+
         // Exemption ordering: mark teleport exemption and engage the pending-setback block BEFORE
         // sending the S08 position packet. Otherwise in-flight movement packets that arrive between
         // the snap and the exemption mark re-flag and trigger another setback (loop).
@@ -158,10 +198,93 @@ public final class MovementEnforcement {
         syncServerPosition(plugin, player, data, setback);
         data.setEngineOffsetAdvantage(0.0D);
 
+        // Re-send the carried velocity so knockback survives the teleport (Grim SetBackData.velocity), and
+        // seed the engine's carried motion with it so the server predicts the knockback movement instead of
+        // re-flagging it. A self-suppress window stops KnockbackHandler re-ingesting this packet, and we do
+        // NOT refresh lastVelocityTime — doing so kept the impulse perpetually "fresh" and re-fed the loop.
+        if (setbackVel != null && setbackVel.lengthSquared() > 1.0E-6D
+                && plugin.getConfig().getBoolean("prediction.setback.preserve-velocity", true)) {
+            long suppressMs = plugin.getConfig().getLong("engine.packet-knockback-self-suppress-ms", 120L);
+            data.setSuppressVelocityCaptureUntilMs(System.currentTimeMillis() + suppressMs);
+            sendVelocityPacket(player, setbackVel);
+            data.getMovementState().carriedMotion = setbackVel.clone();
+            data.markVelocityExempt(plugin.cfg().velocityExemptMs());
+        }
+
         if (plugin.diagnostics() != null) {
             plugin.diagnostics().record(player.getUniqueId(), "MovementEnforcement", "setback", reason);
         }
         return true;
+    }
+
+    /**
+     * Build the velocity to preserve across a setback. An explicit override (the expected knockback for
+     * anti-KB correction) wins; otherwise start from the last-known-good post-tick momentum and fold in
+     * fresh pending impulses — knockback REPLACES momentum, an explosion ADDS on top (mirrors Grim's
+     * futureKb / futureExplosion handling). Returns {@code null} when velocity preservation is disabled.
+     */
+    private static Vector buildSetbackVelocity(VezAntiCheat plugin, PlayerData data, Vector carriedOverride) {
+        if (!plugin.getConfig().getBoolean("prediction.setback.preserve-velocity", true)) return null;
+        if (carriedOverride != null) return carriedOverride.clone();
+
+        // Carry ONLY a genuine pending impulse (knockback / explosion) — NEVER the player's own walking
+        // momentum. Carrying plain momentum and re-sending it as an EntityVelocity flung legit players
+        // forward and fed a self-feedback loop. With no real impulse this returns null, so a normal
+        // movement setback skips the simulate/velocity path and teleports straight to the raw anchor.
+        long now = System.currentTimeMillis();
+        Vector vel = null;
+
+        long kbWindow = plugin.getConfig().getLong("movement-engine.velocity-window-ms", 450L);
+        Vector kb = data.getLastVelocity();
+        if (kb != null && data.getLastVelocityTime() > 0L && (now - data.getLastVelocityTime()) <= kbWindow
+                && kb.lengthSquared() > 1.0E-6D) {
+            vel = kb.clone();
+        }
+        long expWindow = plugin.getConfig().getLong("movement-engine.explosion-window-ms", 900L);
+        Vector explosion = data.getLastExplosionVelocity();
+        if (explosion != null && data.getLastDamageTime() > 0L
+                && (now - data.getLastDamageTime()) <= expWindow && explosion.lengthSquared() > 1.0E-6D) {
+            if (vel == null) vel = explosion.clone();
+            else vel.add(explosion);
+        }
+        return vel;
+    }
+
+    /**
+     * Advance the setback anchor by one collided tick of {@code vel} (so the resync accounts for the
+     * impulse), and decay {@code vel} in place with end-of-tick friction so the re-sent velocity is what
+     * the client should continue with — avoiding a double-counted tick.
+     */
+    private static Location simulateSetbackPosition(PlayerData data, Location anchor, Vector vel) {
+        try {
+            com.colin.vezanticheat.engine.CompensatedWorld world = data.getCompensatedWorld();
+            boolean onGround = com.colin.vezanticheat.movement.CollisionResolver.isOnGround(
+                    world, anchor.getX(), anchor.getY(), anchor.getZ());
+            com.colin.vezanticheat.engine.Collisions.Result col =
+                    com.colin.vezanticheat.movement.CollisionResolver.collide(world,
+                            anchor.getX(), anchor.getY(), anchor.getZ(),
+                            vel.getX(), vel.getY(), vel.getZ(), onGround);
+            Location pos = anchor.clone();
+            pos.add(col.movedX, col.movedY, col.movedZ);
+            double slip = (onGround || col.onGround) ? (0.6D * 0.91D) : 0.91D;
+            vel.setX(vel.getX() * slip);
+            vel.setZ(vel.getZ() * slip);
+            vel.setY((vel.getY() - 0.08D) * 0.98D);
+            return pos;
+        } catch (Throwable t) {
+            return anchor;
+        }
+    }
+
+    private static void sendVelocityPacket(Player player, Vector vel) {
+        if (player == null || vel == null) return;
+        try {
+            User user = PacketEvents.getAPI().getPlayerManager().getUser(player);
+            if (user == null) return;
+            user.sendPacket(new WrapperPlayServerEntityVelocity(player.getEntityId(),
+                    new Vector3d(vel.getX(), vel.getY(), vel.getZ())));
+        } catch (Throwable ignored) {
+        }
     }
 
     /**
@@ -177,8 +300,8 @@ public final class MovementEnforcement {
         }
         if (snap.getWorld() == null) return false;
 
-        snap.setYaw(player.getLocation().getYaw());
-        snap.setPitch(player.getLocation().getPitch());
+        snap.setYaw(data.getPacketYaw());
+        snap.setPitch(data.getPacketPitch());
 
         // Exemption ordering: engage the pending-setback block and mark teleport exemption BEFORE
         // sending the S08 packet so in-flight movement packets do not re-flag and loop.

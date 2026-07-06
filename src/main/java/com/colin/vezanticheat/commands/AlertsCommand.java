@@ -39,17 +39,17 @@ public class AlertsCommand implements CommandExecutor {
             String sub = args[0].toLowerCase();
             if (sub.equals("on")) {
                 data.setFlagsEnabled(true);
-                p.sendMessage(c("&6[Vez] &aAlerts enabled."));
+                p.sendMessage(c("&0&l[PE&7RPLEX&8ION] &aAlerts enabled."));
                 return true;
             }
             if (sub.equals("off")) {
                 data.setFlagsEnabled(false);
-                p.sendMessage(c("&6[Vez] &cAlerts disabled."));
+                p.sendMessage(c("&0&l[PE&7RPLEX&8ION] &cAlerts disabled."));
                 return true;
             }
         }
 
-        p.sendMessage(c("&6[Vez] &eUsage: /alerts <on|off>"));
+        p.sendMessage(c("&0&l[PE&7RPLEX&8ION] &eUsage: /alerts <on|off>"));
         return true;
     }
 }

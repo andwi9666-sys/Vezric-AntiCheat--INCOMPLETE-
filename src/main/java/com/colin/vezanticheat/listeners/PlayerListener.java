@@ -45,6 +45,9 @@ public class PlayerListener implements Listener {
         long now = System.currentTimeMillis();
         d.recordPosition(p.getLocation(), p.isSneaking(), now);
         d.markCombatJoin(now);
+        // Resolve the Bedrock verdict on the main thread so Netty-thread checks
+        // read a warm cache (Floodgate API reflection happens here, once).
+        com.colin.vezanticheat.utils.ClientCompatUtil.isBedrock(plugin, p, d);
         if (plugin.prediction() != null) {
             plugin.prediction().onJoin(p, d, p.getLocation(), now);
         }
@@ -59,10 +62,14 @@ public class PlayerListener implements Listener {
             plugin.combat().removePlayer(e.getPlayer().getUniqueId());
         }
         com.colin.vezanticheat.tier.prism.PrismInteractionEvaluator.clearPlayer(e.getPlayer().getUniqueId());
+        com.colin.vezanticheat.tier.prism.scaffold.ScaffoldEngine.clearPlayer(e.getPlayer().getUniqueId());
         com.colin.vezanticheat.tier.TierCheck.clearPlayer(e.getPlayer().getUniqueId());
         com.colin.vezanticheat.checks.Check.clearPlayer(e.getPlayer().getUniqueId());
         if (plugin.riskScore() != null) {
             plugin.riskScore().remove(e.getPlayer().getUniqueId());
+        }
+        if (plugin.punish() != null) {
+            plugin.punish().clearTransient(e.getPlayer().getUniqueId());
         }
         plugin.data().remove(e.getPlayer());
     }
@@ -72,6 +79,13 @@ public class PlayerListener implements Listener {
         Player p = e.getPlayer();
         PlayerData d = plugin.data().get(p);
         long now = System.currentTimeMillis();
+
+        // Refresh the ping-scaled exemption bonus ~1/s (before the packet-mode early
+        // return below — this must run regardless of which path handles movement).
+        if (now - d.getLastExemptPingUpdateMs() >= 1000L) {
+            d.setLastExemptPingUpdateMs(now);
+            d.setExemptPingBonusMs(plugin.cfg().exemptPingBonusMs(p));
+        }
 
         if (plugin.hasProtocolLib()) {
             return;

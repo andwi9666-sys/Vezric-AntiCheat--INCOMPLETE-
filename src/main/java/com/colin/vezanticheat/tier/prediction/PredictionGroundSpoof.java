@@ -32,6 +32,10 @@ public final class PredictionGroundSpoof extends AbstractMovementTierCheck {
                 cool(p, 0.3D);
                 return;
             }
+            if (com.colin.vezanticheat.utils.FallArcTracker.shouldSuppressLegitFallMovement(plugin, data, nowMs)) {
+                cool(p, 0.35D);
+                return;
+            }
             if (GroundSpoofTracker.shouldSkipGroundSpoofCheck(p, data, er, nowMs, plugin)) {
                 cool(p, 0.3D);
                 return;

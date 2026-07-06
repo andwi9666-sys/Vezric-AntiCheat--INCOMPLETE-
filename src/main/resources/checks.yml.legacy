@@ -602,8 +602,8 @@ AutoClickA:
   outlierCpsDelta: 1.10  # Check-specific tuning value
   windowSwings: 42  # Check-specific tuning value
   minSamples: 24  # Minimum hits in window before evaluation.
-  minTrackedCps: 9.0  # Bound/limit for this check
-  maxTrackedCps: 17.5  # Bound/limit for this check
+  minTrackedCps: 8.0  # Flags only above this CPS
+  maxTrackedCps: 22.0  # Max CPS evaluation cap
   maxBandWidth: 1.15  # Bound/limit for this check
   minTwoBucketRatio: 0.92  # Bound/limit for this check
   maxStdMs: 4.4  # Time window in milliseconds
@@ -618,8 +618,8 @@ AutoClickB:
   vl: 1.0  # Violation level added on each flag (higher = faster punishment ladder).
   windowSwings: 38  # Check-specific tuning value
   minSamples: 22  # Minimum hits in window before evaluation.
-  minTrackedCps: 9.0  # Bound/limit for this check
-  maxTrackedCps: 16.0  # Bound/limit for this check
+  minTrackedCps: 8.0  # Flags only above this CPS
+  maxTrackedCps: 22.0  # Max CPS evaluation cap
   maxBandWidth: 1.0  # Bound/limit for this check
   minTwoBucketRatio: 0.95  # Bound/limit for this check
   maxStdMs: 5.0  # Time window in milliseconds
@@ -636,8 +636,8 @@ AutoClickC:
   minSliceSamples: 3  # Bound/limit for this check
   windowSwings: 40  # Check-specific tuning value
   minSamples: 24  # Minimum hits in window before evaluation.
-  minTrackedCps: 9.0  # Bound/limit for this check
-  maxTrackedCps: 16.0  # Bound/limit for this check
+  minTrackedCps: 8.0  # Flags only above this CPS
+  maxTrackedCps: 22.0  # Max CPS evaluation cap
   maxBandWidth: 1.25  # Bound/limit for this check
   minTwoBucketRatio: 0.9  # Bound/limit for this check
   maxWindowSpread: 0.55  # Bound/limit for this check

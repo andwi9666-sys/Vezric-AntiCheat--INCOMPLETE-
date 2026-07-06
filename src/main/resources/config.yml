@@ -1,14 +1,15 @@
 # =============================================================================
-# VezAntiCheat — Server Config (config.yml)
+# Perplexion AntiCheat — Server Config (config.yml)
 # =============================================================================
 # Global plugin settings: engines, lag gates, punishments, messages.
 #
-# PER-CHECK TUNING lives in checks.yml (enabled, shadow, vl, bufferToFlag, thresholds).
-# Reload both: /vez reload
-# Live tune a check: /vez tune <CheckName> <key> [value]
+# PER-CHECK TUNING lives in the tiers/ YAML files (enabled, shadow, vl,
+# bufferToFlag, thresholds).
+# Reload everything: /perplexion reload   (aliases: /pe, /vez)
+# Live tune a check: /perplexion tune <CheckName> <key> [value]
 # =============================================================================
 
-config-version: 17
+config-version: 18
 
 # Optional license gate for direct premium sales (disabled for marketplace builds)
 license:
@@ -17,7 +18,7 @@ license:
   grace-hours: 24
   validation-url: ''
 
-# Optional update manifest check (surfaced in /vez status)
+# Optional update manifest check (surfaced in /perplexion status)
 updates:
   check-enabled: false
   manifest-url: ''
@@ -42,12 +43,12 @@ combat-mitigation:
   punitive-setback: true
   push-blocks: 0.40
   teleport-exempt-ms: 250
-  min-confidence-for-setback: moderate
+  min-confidence-for-setback: high
 
 # Chat prefix used in {prefix} placeholders below
-prefix: '&6[VezAC] '
+prefix: '&0&l[PE&7RPLEX&8ION] '
 
-# Master anticheat switch (/vez on|off also toggles this)
+# Master anticheat switch (/perplexion on|off also toggles this)
 anticheat:
   enabled: true  # false = all checks stop flagging
 
@@ -58,15 +59,15 @@ simulation:
 
 # Staff alert formatting
 flags:
-  format: '{prefix}&e{player} &7failed &c{check} &8[&7{tier}&8] &7(&fVL {vl}&7)'  # check=Polar name, tier=Prism/Heuristics/etc.
+  format: '{prefix}&c{player} &7failed &4{check} &7[{tier}] (&4VL {vl}&7)'  # check=check name, tier=Prism/Prediction/etc.
   staff-default-on: true  # New staff see alerts without running /flags
 
 messages:
   no-permission: '{prefix}&cNo permission.'
   flags-on: '{prefix}&aAlerts enabled.'
   flags-off: '{prefix}&cAlerts disabled.'
-  enabled: '{prefix}&aVezAntiCheat enabled.'
-  disabled: '{prefix}&cVezAntiCheat disabled.'
+  enabled: '{prefix}&aPerplexion enabled.'
+  disabled: '{prefix}&cPerplexion disabled.'
   reload: '{prefix}&aReloaded config.'
 # Skip detections when server or player connection is unstable
 lag:
@@ -160,12 +161,34 @@ velocity-engine:
     enabled: true
     cooldown-ms: 0
     min-confidence: 0.82
+    # Route anti-knockback enforcement through the unified GrimAC movement setback (teleport to last-good
+    # + re-send the expected knockback) instead of the legacy animated replay. Set false to fall back to
+    # the VelocityKnockbackAnimator path.
+    use-grim-setback: true
 # Global exemption windows after legit server events (reduces false positives)
 exempt:
   teleport-ms: 900   # After legit server teleports (join/respawn/world change) — setbacks do not apply this
-  velocity-ms: 450   # After knockback/explosion
+  velocity-ms: 500   # After knockback/explosion
   blockstate-ms: 550 # After block state change (bridging needs longer grace)
   potion-ms: 700     # After speed/jump potion effect
+  # Grace windows grow with the player's measured ping: window + min(ping * factor, cap-ms).
+  # A 200ms-ping player gets +100ms on every window above (factor 0.5), capped at cap-ms.
+  ping-scaling:
+    enabled: true
+    factor: 0.5
+    cap-ms: 150
+
+# Client platform/version compatibility. Adjustments here only ever EXEMPT or LOOSEN —
+# a misdetected client can cause a missed flag, never a false one.
+compat:
+  bedrock:
+    enabled: true                    # Detect Geyser/Floodgate players (API > UUID > brand)
+    exempt-aim-checks: true          # Touch/controller aim breaks Java mouse heuristics — skip aim checks
+    scaffold-buffer-multiplier: 1.5  # Bedrock placement timing differs; require more evidence
+    reach-extra: 0.05                # Geyser translation positional slack added to reach margin
+  via:
+    enabled: true                    # Read client protocol version through ViaVersion when present
+    modern-client-leniency: true     # Reserved: leniency rules for newer-than-1.8 clients
 
 # Shared combat context for Reach, Hitbox, KillAura, etc. (not per-check)
 combat-analysis:
@@ -215,7 +238,7 @@ combat-analysis:
 
   target-switch:
     enabled: true
-    quick-switch-ms: 250
+    quick-switch-ms: 40
     very-quick-switch-ms: 150
     large-angle: 45.0
     perfect-hit-yaw-error: 3.0
@@ -307,7 +330,7 @@ movement-analysis:
   jump-arc-max-offset: 0.52
   fall-arc-window-ms: 2800
   fall-land-grace-ms: 750
-  fall-arc-min-drop: 1.25
+  fall-arc-min-drop: 0.75
   fall-arc-max-offset: 0.62
   fall-arc-landing-max-offset: 0.85
   fall-damage-setback-grace-ms: 800
@@ -384,6 +407,9 @@ engine:
   # Capture knockback/explosion directly from outgoing ENTITY_VELOCITY / EXPLOSION packets and
   # fold them into the prediction (more accurate than Bukkit PlayerVelocityEvent).
   packet-knockback: true
+  # After the anticheat sends its OWN setback correction velocity, ignore outgoing EntityVelocity for this
+  # long so it is not re-ingested as a real knockback (self-feedback guard). Keep small.
+  packet-knockback-self-suppress-ms: 120
   # How long after a knockback/explosion packet it is folded into the next movement tick.
   knockback-window-ms: 550
   knockback-grace-ms: 300
@@ -437,6 +463,59 @@ engine:
     ledger-debit-cap-ms: 20
     gap-debit-trigger-ms: 225
     gap-debit-ms: 50
+    # TimerLimit (Grim analogue): above this ping (ms) the drift ledger stops accruing — extreme latency
+    # makes the clock estimate unreliable and farmable. The PredictionNegativeTimer slow-timer check also
+    # respects normal lag-gating on top of this.
+    timer-limit-abuse-ms: 1000
+
+# Deterministic 1.8.8 movement engine replacement.
+movement-engine:
+  # Master switch for the prediction-engine movement DETECTION (Simulation tier + Prediction offset
+  # checks: Speed/Offset/Fly/Step/Phase/...). Default FALSE because the from-scratch offset engine
+  # false-flagged legit movement. Deterministic checks (timer, nofall) do not use it and keep running.
+  # Set true to re-enable offset prediction once it is verified false-positive free on your server.
+  detection-enabled: false
+  velocity-window-ms: 450
+  explosion-window-ms: 900
+  setback:
+    enabled: true
+  physics:
+    base-move-speed: 0.1
+    sprint-multiplier: 1.3
+    speed-potion-per-level: 0.2
+    slowness-per-level: 0.15
+    jump-velocity: 0.42
+    jump-boost-velocity-per-level: 0.1
+    gravity: 0.08
+    vertical-drag: 0.98
+    ground-friction-factor: 0.91
+    normal-slipperiness: 0.6
+    ice-slipperiness: 0.98
+    slime-slipperiness: 0.8
+    # Vanilla/Grim ground acceleration numerator: groundSpeed = moveSpeed * (0.21600002 / friction^3).
+    ground-acceleration-numerator: 0.21600002
+    air-acceleration: 0.02
+    # Grim sprint air acceleration is 0.025999999 (= 0.02 + 0.006).
+    sprint-air-acceleration-bonus: 0.006
+    water-drag: 0.8
+    lava-drag: 0.5
+    liquid-acceleration: 0.02
+    web-horizontal-multiplier: 0.25
+    web-vertical-multiplier: 0.05
+    ladder-horizontal-clamp: 0.15
+    ladder-down-clamp: -0.15
+    ladder-wall-climb-up: 0.2
+    math-epsilon: 0.00001
+    collision-tolerance: 0.03
+    # Only offset above advantage-floor accrues into the sustained-speed accumulator; clean ticks decay it
+    # fast. Raised from 0.001 so legit float/collision jitter cannot slowly build a false speed flag.
+    advantage-floor: 0.015
+    advantage-decay-per-clean-tick: 0.035
+    advantage-cap: 3.0
+    minor-offset: 0.035
+    moderate-offset: 0.12
+    blatant-offset: 0.42
+    timer-debt-threshold-ms: 120.0
 
 # Blatant movement packet cancel + immediate setback enforcement
 movement-enforcement:
@@ -488,9 +567,19 @@ integrations:
 combat-analyzer:
   enabled: true
 
+# Aim heuristics (CharSilentAim, CharAimSnap/Reset/Center/Correlation/Sensitivity, CharAimAssistA/B/C and
+# the combat-analyzer) are ENABLED. Detection runs; enforcement aggressiveness is bounded by each
+# check's combatMitigation/shadow flags AND punish.safety-mode (silent/alerts-only/mitigation/banwave),
+# so turning detection on does NOT auto-ban. Reach, criticals, timer, badpackets are NOT affected by this.
+combat:
+  aim-heuristics-enabled: true
+
 # Lag-compensated reach/entity tracking for combat checks
 combat-engine:
   enabled: true  # false = legacy position-history rewind only
+  # Floor on the effective reach limit (blocks, eye -> expanded hitbox). Prevents legit ~3.0-block hits on
+  # moving targets from false-flagging at high ping. Blatant reach above this still flags.
+  min-reach-limit: 3.3
   # Send a window-confirmation ("transaction") each tick and time the echo for ping rewind.
   # Disable to anchor entity snapshots by wall-clock time instead of transaction acks.
   transactions: true
@@ -501,6 +590,12 @@ combat-engine:
   # position window (covers interpolation + 1-tick send latency). Higher = more lenient.
   rewind-bracket-back: 2
   rewind-bracket-forward: 1
+  # GrimAC ReachInterpolationData analogue: also test positions interpolated BETWEEN consecutive
+  # in-bracket snapshots (a target can be mid-tick on the attacker's screen). Only lowers the rewound
+  # distance — pure leniency for fast/high-ping targets, never a new flag. Steps mirror Grim's living
+  # entity interpolation (3).
+  interpolation-enabled: true
+  interpolation-steps: 3
   # Hard cap on how far back the rewind may look (ms), for both the engine and legacy fallback.
   max-rewind-ms: 800
   # Legacy-fallback rewind window (only used when a target is untracked): base + ping * factor.
@@ -589,10 +684,22 @@ prediction:
     focus-reset-lag-score: 0.9
   setback:
     enabled: true
+    # MASTER ENFORCEMENT SWITCH for movement + velocity setbacks. Default FALSE: the prediction engine
+    # still detects and ALERTS (VL accrues), but it will NOT teleport/setback the player. This guards
+    # against the movement-prediction false positives. Set to true ONLY after confirming, via the alert
+    # offsets, that legit movement no longer flags. (Combat reach/aim packet-drops are unaffected.)
+    enforce: false
     cooldown-ms: 0
     teleport-exempt-ms: 900
     max-valid-age-ms: 2500
     valid-engine-offset: 0.12  # Engine offset at/below this on ground = valid anchor sample
+    # GrimAC-faithful setback (movement + unified velocity). preserve-velocity re-sends the carried/
+    # knockback velocity as an EntityVelocity packet so a setback never eats knockback. simulate advances
+    # the anchor by one collided+frictioned tick of that velocity. transaction-confirmed keeps movement
+    # blocked until the client acks a transaction sent after the teleport (vs position-distance only).
+    preserve-velocity: true
+    simulate: true
+    transaction-confirmed: true
     simulation-cooldown-ms: 0
     simulation-teleport-exempt-ms: 0
     timer-cooldown-ms: 0
@@ -748,7 +855,18 @@ spider-analysis:
     max-move-h: 0.55
 # Ban ladder, banwave, and evidence scoring (check VL thresholds are in checks.yml)
 punish:
-  enabled: true  # false = flag only, no bans
+  enabled: true  # false = flag only, no bans (overrides safety-mode below)
+  # THE one knob that decides how far the anticheat may act on a flag:
+  #   silent       - record flags internally only (no staff chat, no setbacks, no bans)
+  #   alerts-only  - + staff chat alerts
+  #   mitigation   - + setbacks / hit-drops on flag (recommended first week)
+  #   banwave      - + evidence scoring and delayed banwave punishment (default)
+  #   instant      - + immediate execution allowed (NEVER enable before staging tests)
+  safety-mode: banwave
+  # Defer punishment execution while the server is lagging (retries automatically).
+  lag-gate:
+    enabled: true
+    retry-delay-ms: 120000
   ban-vl: 25   # Total VL before punishment ladder runs
   mode: CHECK
   execution:
@@ -849,9 +967,6 @@ punish:
       AimAssistA: LOW
       AimAssistB: LOW
       AimAssistC: LOW
-      AutoClickA: LOW
-      AutoClickB: LOW
-      AutoClickC: LOW
   ladder:
     '1':
       type: TEMP
@@ -864,11 +979,12 @@ punish:
       duration: 365d
     '4':
       type: PERM
-  watchdog:
+  # Public ban announcements. Set appeal-url to YOUR server's appeal page.
+  announcements:
     reason: Cheating through the use of unfair game advantages.
-    appeal-url: https://www.hypixel.net/appeal
-    broadcast: '&cWatchdog has banned {player} for cheating!'
-    remove-message: '&eA player has been removed from your game.'
+    appeal-url: https://your-server.example/appeal
+    broadcast: '&4Perplexion &7has removed &c{player} &7for cheating.'
+    remove-message: '&7A player has been removed from your game.'
   reasons:
     REACH: Cheating
     BACKTRACK: Cheating

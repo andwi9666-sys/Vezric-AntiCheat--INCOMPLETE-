@@ -64,7 +64,7 @@ public final class LicenseManager {
         if (!plugin.getConfig().getBoolean("license.enabled", false)) return;
         if (valid.get()) return;
         if (System.currentTimeMillis() >= graceExpiresMs) {
-            String msg = ChatColor.RED + "[VezAC] License invalid — anticheat checks disabled.";
+            String msg = ChatColor.RED + "[Perplexion] License invalid — anticheat checks disabled.";
             for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
                 if (p.hasPermission("vez.admin")) p.sendMessage(msg);
             }

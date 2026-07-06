@@ -4,6 +4,7 @@ import com.colin.vezanticheat.VezAntiCheat;
 import com.colin.vezanticheat.data.PlayerData;
 import com.colin.vezanticheat.tier.CheckTier;
 import com.colin.vezanticheat.tier.TierCheck;
+import com.colin.vezanticheat.utils.UseItemTracker;
 import org.bukkit.entity.Player;
 
 /** Tick/input/interact ordering check (ATTACK_WITHOUT_MOVE). */
@@ -21,6 +22,11 @@ public final class PrismPacketOrderA extends TierCheck {
     }
 
     private void evaluate(Player p, PlayerData data, long nowMs) {
+        if (UseItemTracker.isLegitSwordBlockSession(p, data, nowMs)) {
+            coolBuffer(p, 1);
+            decay(p, 0.3D);
+            return;
+        }
         double suspicion = PrismPacketOrderSupport.score(plugin, this, data, nowMs,
                 PrismPacketOrderSupport.OrderKind.ATTACK_WITHOUT_MOVE);
         double threshold = plugin.tierCfg().checkDouble(name(), "threshold", 0.55D);

@@ -453,9 +453,13 @@ public final class LagrangeUtil {
 
     private static Player nearestNearbyPlayer(Player player, double range) {
         if (player == null || range <= 0.0D) return null;
+        EntityIndex index = EntityIndex.active();
+        if (index == null) return null;
         Player best = null;
         double bestSq = range * range;
-        for (org.bukkit.entity.Entity entity : player.getNearbyEntities(range, range, range)) {
+        // EntityIndex snapshot instead of getNearbyEntities: this runs on Netty threads,
+        // where iterating live chunk entity lists races the main thread.
+        for (org.bukkit.entity.Entity entity : index.nearby(player, range)) {
             if (!(entity instanceof Player)) continue;
             Player other = (Player) entity;
             if (!other.isOnline() || other.equals(player)) continue;

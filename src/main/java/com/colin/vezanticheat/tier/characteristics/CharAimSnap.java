@@ -1,21 +1,69 @@
 package com.colin.vezanticheat.tier.characteristics;
 
 import com.colin.vezanticheat.VezAntiCheat;
+import com.colin.vezanticheat.combat.math.RequiredRotationUtil;
 import com.colin.vezanticheat.data.PlayerData;
 import com.colin.vezanticheat.tier.CheckTier;
 import com.colin.vezanticheat.tier.TierCheck;
+import com.colin.vezanticheat.utils.AimAssistUtil;
 import com.colin.vezanticheat.utils.CombatContextAnalyzer;
 import com.colin.vezanticheat.utils.CombatUtil;
 import com.colin.vezanticheat.utils.PingUtil;
+import com.colin.vezanticheat.utils.SilentAimAnalyzer;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
-/** Pre-attack yaw snap with post-snap alignment (ported from KillAuraD). */
+/**
+ * CharAimSnap -- SERVER-SIDE snap-and-restore confirmation for silent aim.
+ *
+ * <p><b>Re-scoped.</b> The old body only fired on "one big VISIBLE flick packet in the position
+ * history" -- which a true silent aura never produces, because the cheat OVERRIDES the outgoing
+ * rotation so the SERVER sees the aim land on the rewound hitbox while the client camera never moves.
+ * Attack-tick angular error is therefore ~0 for genuine silent aim and useless as a trigger.</p>
+ *
+ * <p>This rewrite confirms silent aim via the INJECTED-ROTATION FINGERPRINT reconstructed by
+ * {@link SilentAimAnalyzer} over the rotation ring buffer (raw yaw/pitch + timeMs) and the position
+ * history, evaluated against the SAME lag-comp hitbox the reach engine used:</p>
+ * <ol>
+ *   <li><b>Snap-to-target-and-restore</b> (the load-bearing tell): within a window around the attack
+ *       the server yaw/pitch jumps TO a value that aims at the hitbox (error collapses from a high
+ *       prior error to ~0) and then jumps BACK toward the pre-snap heading on a later packet. Read as
+ *       {@code SilentAimAnalyzer.snapRestoreScore}, accumulated into a SUSTAINED window.</li>
+ *   <li><b>Impossible angular velocity onto the hitbox</b> (incl. sudden 180 snaps that terminate on
+ *       a valid target): the landing step's deg/sec exceeds
+ *       {@link RequiredRotationUtil#snapAngularVelocityThreshold(int)} while the post-step error is
+ *       near-perfect.</li>
+ *   <li><b>Legacy visible large-yaw-step</b> in the position history kept ONLY as a SECONDARY
+ *       corroborator -- a visible snap still counts, but is no longer the sole trigger.</li>
+ * </ol>
+ *
+ * <p>It also publishes its freshly-computed transient values onto {@link PlayerData}
+ * (snap-restore deque cap 12, last snap-restore score, last hitbox-snap velocity, center-lock jitter
+ * deque cap 16) so the shared {@link CharSilentAimSignals#score} fusion can consume them this tick,
+ * since this runner dispatches BEFORE CharSilentAim.</p>
+ *
+ * <p><b>Tiers.</b> blatant = hitbox-snap velocity above the ping threshold landing near-perfect OR
+ * snap-restore &gt;= snapRestoreBlatant (default 0.70). suspicious = snap-restore &gt;=
+ * snapRestoreSuspicious (default 0.45) AND combat.isClean() AND the snap-restore window average is
+ * sustained (&gt;= 0.40). Tiered buffer gain, flag at bufferToFlag, blockAttack on confidence.</p>
+ *
+ * <p><b>FP protections (all preserved):</b> velocity/teleport exempt, lag (tps/ping) gating, close
+ * range minDistance bypass, isKbDisplacementFlick / isActiveCombatSpam / isLegitCombatMovement
+ * exemptions, combat.isClean() required for the suspicious tier, sustained-window requirement for
+ * suspicious, and buffer decay/reset. Java 8 only.</p>
+ */
 public final class CharAimSnap extends TierCheck {
+
+    /** Sustained snap-restore window average that the suspicious tier requires. */
+    private static final double SUSTAINED_WINDOW_AVG = 0.40D;
+    /** Enforced caps (the analyzer/PlayerData contract: this CALLER trims the deques). */
+    private static final int SNAP_RESTORE_CAP = 12;
+    private static final int CENTER_LOCK_CAP = 16;
 
     public CharAimSnap(VezAntiCheat plugin) {
         super(plugin, "CharAimSnap", CheckTier.CHARACTERISTICS);
@@ -52,21 +100,16 @@ public final class CharAimSnap extends TierCheck {
         CombatUtil.ReachContext ctx = resolveReachContext(data, eye, target, targetData, data.getLastUseEntityTime(), rewindMs);
         if (ctx == null) return;
 
+        // FP: angular error / snap reconstruction is unreliable at point-blank.
         if (ctx.getCompensatedDistance() < plugin.tierCfg().checkDouble(name(), "minDistance", 1.5)) {
             decay(p, 0.35);
             return;
         }
 
-        double postSnapAngle = CombatUtil.angularError(eye, ctx.getCompensatedLocation(), ctx.getWidth(), ctx.getHeight());
-
-        long historyWindowMs = plugin.tierCfg().checkLong(name(), "historyWindowMs", 150L);
-        List<PlayerData.PositionSample> recent = recentSamples(data, data.getLastUseEntityTime(), historyWindowMs);
-        if (recent.size() < plugin.tierCfg().checkInt(name(), "minHistorySamples", 3)) {
-            decay(p, 0.35);
-            return;
-        }
-
         long attackTime = data.getLastUseEntityTime();
+        long historyWindowMs = plugin.tierCfg().checkLong(name(), "historyWindowMs", 150L);
+
+        // FP: combat-spam / legit combat movement / knockback-displacement flick are not silent aim.
         if (combat.isActiveCombatSpam()
                 || combat.isLegitCombatMovement()
                 || CombatContextAnalyzer.isKbDisplacementFlick(data, attackTime, historyWindowMs + 80L)) {
@@ -76,50 +119,105 @@ public final class CharAimSnap extends TierCheck {
             return;
         }
 
+        Location hitboxFeet = ctx.getCompensatedLocation();
+        double width = ctx.getWidth();
+        double height = ctx.getHeight();
+        double postSnapAngle = CombatUtil.angularError(eye, hitboxFeet, width, height);
+
+        // ===================== PRIMARY: server-side snap-and-restore fingerprint =====================
+        // Reconstruct the per-tick rotation trajectory through the attack moment ourselves; this runner
+        // dispatches BEFORE CharSilentAim, so we cannot rely on it having populated the transient values.
+        long analyzerWindowMs = plugin.tierCfg().checkLong(name(), "historyWindowMs", 150L);
+        SilentAimAnalyzer.Result fp = SilentAimAnalyzer.analyze(
+                data.getRotationRingBuffer(),
+                data.getPositionHistory(),
+                eye, hitboxFeet, width, height,
+                attackTime, ping, analyzerWindowMs);
+
+        double snapRestore = SilentAimAnalyzer.snapRestoreScore(fp);
+        double hitboxSnapVel = SilentAimAnalyzer.hitboxSnapVelocity(fp);
+        double centerJitter = SilentAimAnalyzer.centerLockJitter(fp);
+
+        // Publish transient values so the shared fusion (CharSilentAimSignals.score / snapScore) sees
+        // them THIS tick; we own the deque caps per the PlayerData contract.
+        data.setSilentLastSnapRestoreScore(snapRestore);
+        data.setSilentLastHitboxSnapVelDegPerSec(hitboxSnapVel);
+        pushCapped(data.getSilentSnapRestoreScores(), snapRestore, SNAP_RESTORE_CAP);
+        pushCapped(data.getSilentCenterLockJitter(), centerJitter, CENTER_LOCK_CAP);
+
+        double windowAvg = AimAssistUtil.average(
+                AimAssistUtil.tail(data.getSilentSnapRestoreScores(), SNAP_RESTORE_CAP));
+
+        // Impossible-velocity-onto-hitbox (incl. 180 snaps): landing step deg/sec beyond the ping
+        // threshold AND the landing is near-perfect (snap-TO present == lands within hitbox center band).
+        double snapVelThreshold = RequiredRotationUtil.snapAngularVelocityThreshold(ping);
+        boolean impossibleVelocityLanding = fp.hasSnapTo && hitboxSnapVel > snapVelThreshold;
+
+        double snapRestoreSuspicious = plugin.tierCfg().checkDouble(name(), "snapRestoreSuspicious", 0.45);
+        double snapRestoreBlatant = plugin.tierCfg().checkDouble(name(), "snapRestoreBlatant", 0.70);
+
+        // ===================== SECONDARY corroborator: legacy visible large-yaw-step =====================
+        List<PlayerData.PositionSample> recent = recentSamples(data, attackTime, historyWindowMs);
+        boolean legacyBlatant = false;
+        boolean legacySuspicious = false;
         float maxYawStep = 0.0F;
         float pairedPitchStep = 0.0F;
         long stepAge = Long.MAX_VALUE;
-
-        PlayerData.PositionSample previous = null;
-        for (PlayerData.PositionSample sample : recent) {
-            if (previous != null) {
-                float yawStep = CombatUtil.angleDiff(sample.getYaw(), previous.getYaw());
-                float pitchStep = Math.abs(sample.getPitch() - previous.getPitch());
-                if (yawStep > maxYawStep) {
-                    maxYawStep = yawStep;
-                    pairedPitchStep = pitchStep;
-                    stepAge = data.getLastUseEntityTime() - sample.getTime();
+        if (recent.size() >= plugin.tierCfg().checkInt(name(), "minHistorySamples", 3)) {
+            PlayerData.PositionSample previous = null;
+            for (PlayerData.PositionSample sample : recent) {
+                if (previous != null) {
+                    float yawStep = CombatUtil.angleDiff(sample.getYaw(), previous.getYaw());
+                    float pitchStep = Math.abs(sample.getPitch() - previous.getPitch());
+                    if (yawStep > maxYawStep) {
+                        maxYawStep = yawStep;
+                        pairedPitchStep = pitchStep;
+                        stepAge = attackTime - sample.getTime();
+                    }
                 }
+                previous = sample;
             }
-            previous = sample;
+
+            double minSnapYaw = plugin.tierCfg().checkDouble(name(), "minSnapYaw", 70.0);
+            double blatantSnapYaw = plugin.tierCfg().checkDouble(name(), "blatantSnapYaw", 120.0);
+            double maxPitchStep = plugin.tierCfg().checkDouble(name(), "maxPitchStep", 15.0);
+            long maxSnapToAttackMs = plugin.tierCfg().checkLong(name(), "maxSnapToAttackMs", 50L);
+            double maxPostSnapAngle = plugin.tierCfg().checkDouble(name(), "maxPostSnapAngle", 1.5);
+            double blatantMaxPostSnapAngle = plugin.tierCfg().checkDouble(name(), "blatantMaxPostSnapAngle", 0.8);
+
+            legacyBlatant = maxYawStep >= blatantSnapYaw
+                    && pairedPitchStep <= maxPitchStep
+                    && stepAge >= 0 && stepAge <= maxSnapToAttackMs
+                    && postSnapAngle <= blatantMaxPostSnapAngle;
+
+            legacySuspicious = !legacyBlatant
+                    && maxYawStep >= minSnapYaw
+                    && pairedPitchStep <= maxPitchStep
+                    && stepAge >= 0 && stepAge <= maxSnapToAttackMs
+                    && postSnapAngle <= maxPostSnapAngle
+                    && combat.isClean();
         }
 
-        double minSnapYaw = plugin.tierCfg().checkDouble(name(), "minSnapYaw", 70.0);
-        double blatantSnapYaw = plugin.tierCfg().checkDouble(name(), "blatantSnapYaw", 120.0);
-        double maxPitchStep = plugin.tierCfg().checkDouble(name(), "maxPitchStep", 15.0);
-        long maxSnapToAttackMs = plugin.tierCfg().checkLong(name(), "maxSnapToAttackMs", 50L);
-        double maxPostSnapAngle = plugin.tierCfg().checkDouble(name(), "maxPostSnapAngle", 1.5);
-        double blatantMaxPostSnapAngle = plugin.tierCfg().checkDouble(name(), "blatantMaxPostSnapAngle", 0.8);
+        // ===================== fuse into the two confidence tiers =====================
+        // blatant: impossible-velocity landing OR a very complete snap-and-restore OR a blatant visible snap.
+        boolean blatant = impossibleVelocityLanding
+                || snapRestore >= snapRestoreBlatant
+                || legacyBlatant;
 
-        boolean blatantSnap = maxYawStep >= blatantSnapYaw
-                && pairedPitchStep <= maxPitchStep
-                && stepAge >= 0 && stepAge <= maxSnapToAttackMs
-                && postSnapAngle <= blatantMaxPostSnapAngle;
+        // suspicious: a real snap-and-restore that is SUSTAINED over the window during clean combat,
+        // or the legacy visible suspicious snap.
+        boolean suspicious = !blatant
+                && ((snapRestore >= snapRestoreSuspicious && combat.isClean() && windowAvg >= SUSTAINED_WINDOW_AVG)
+                    || legacySuspicious);
 
-        boolean suspicious = !blatantSnap
-                && maxYawStep >= minSnapYaw
-                && pairedPitchStep <= maxPitchStep
-                && stepAge >= 0 && stepAge <= maxSnapToAttackMs
-                && postSnapAngle <= maxPostSnapAngle
-                && combat.isClean();
-
+        // ===================== buffer / decay (unchanged accounting) =====================
         int buf = data.getKillAuraDBuffer();
         long lastState = data.getKillAuraDLastStateMs();
         long bufferResetMs = plugin.tierCfg().checkLong(name(), "bufferResetMs", 2500L);
         if (lastState > 0L && (now - lastState) > bufferResetMs) buf = 0;
 
-        if (blatantSnap || suspicious) {
-            int gain = blatantSnap ? 3 : 1;
+        if (blatant || suspicious) {
+            int gain = blatant ? 3 : 1;
             if (data.getKillAuraDConsecutiveWindows() == 1) {
                 gain += 1;
                 data.setKillAuraDConsecutiveWindows(0);
@@ -131,15 +229,19 @@ public final class CharAimSnap extends TierCheck {
 
             int bufferToFlag = plugin.tierCfg().checkInt(name(), "bufferToFlag", 6);
             if (buf >= bufferToFlag) {
+                String tag = blatant ? "blatant-silent-snap" : "silent-snap";
                 blockAttack(p, data,
-                        (blatantSnap ? "blatant-snap" : "snap")
-                                + " yaw=" + r(maxYawStep)
-                                + " angle=" + r(postSnapAngle));
-                fail(p, data, blatantSnap ? 1.5 : 1.0,
-                        (blatantSnap ? "blatant-snap" : "snap")
+                        tag + " sr=" + r(snapRestore) + " vel=" + r(hitboxSnapVel) + " yaw=" + r(maxYawStep));
+                fail(p, data, blatant ? 1.5 : 1.0,
+                        tag
+                                + " sr=" + r(snapRestore)
+                                + " win=" + r(windowAvg)
+                                + " vel=" + r(hitboxSnapVel) + "(thr=" + r(snapVelThreshold) + ")"
+                                + " restore=" + fp.hasRestore
+                                + " jit=" + r(centerJitter)
                                 + " yaw=" + r(maxYawStep)
                                 + " pitch=" + r(pairedPitchStep)
-                                + " age=" + stepAge + "ms"
+                                + " age=" + (stepAge == Long.MAX_VALUE ? -1 : stepAge) + "ms"
                                 + " angle=" + r(postSnapAngle)
                                 + " buf=" + buf
                                 + " " + combat.debugSummary());
@@ -169,6 +271,13 @@ public final class CharAimSnap extends TierCheck {
             if (age >= 0L && age <= windowMs) list.add(sample);
         }
         return list;
+    }
+
+    /** Append a value then trim to {@code cap} from the front (the PlayerData deque contract). */
+    private void pushCapped(Deque<Double> deque, double value, int cap) {
+        if (deque == null) return;
+        deque.addLast(value);
+        while (deque.size() > cap) deque.removeFirst();
     }
 
     private CombatUtil.ReachContext resolveReachContext(

@@ -31,7 +31,7 @@ public final class FallArcTracker {
         }
 
         static Settings defaults() {
-            return new Settings(1.25D, 750L, 2800L, 800L);
+            return new Settings(0.75D, 750L, 2800L, 800L);
         }
 
         static Settings from(VezAntiCheat plugin) {
@@ -39,7 +39,7 @@ public final class FallArcTracker {
             long damageGraceMs = plugin.getConfig().getLong("movement-analysis.fall-damage-setback-grace-ms", 800L);
             long flyDamageGraceMs = plugin.tierCfg().checkLong("PredictionFly", "damageCooldownMs", 500L);
             return new Settings(
-                    plugin.getConfig().getDouble("movement-analysis.fall-arc-min-drop", 1.25D),
+                    plugin.getConfig().getDouble("movement-analysis.fall-arc-min-drop", 0.75D),
                     plugin.getConfig().getLong("movement-analysis.fall-land-grace-ms", 750L),
                     plugin.getConfig().getLong("movement-analysis.fall-arc-window-ms", 2800L),
                     Math.max(damageGraceMs, flyDamageGraceMs));
@@ -141,6 +141,36 @@ public final class FallArcTracker {
         return isActiveLegitFallDescent(data, settings);
     }
 
+    /**
+     * Broader prediction-tier grace for normal falls. This runs before checks build buffers,
+     * while {@link #shouldSuppressLegitFallSetback} is the final enforcement veto.
+     */
+    public static boolean shouldSuppressLegitFallMovement(VezAntiCheat plugin, PlayerData data, long nowMs) {
+        if (plugin == null || data == null) return false;
+        return shouldSuppressLegitFallMovement(data, nowMs, Settings.from(plugin));
+    }
+
+    static boolean shouldSuppressLegitFallMovement(PlayerData data, long nowMs, Settings settings) {
+        if (data == null || settings == null) return false;
+        if (shouldSuppressLegitFallSetback(data, nowMs, settings)) return true;
+
+        long landAt = data.getNoFallALandAtMs();
+        if (landAt > 0L && nowMs - landAt <= settings.landGraceMs) {
+            double fall = data.getNoFallALandFall();
+            if (fall >= settings.minDrop) return true;
+        }
+
+        long expectedDamage = data.getNoFallAExpectedDamageAfterMs();
+        if (expectedDamage > 0L
+                && nowMs >= landAt
+                && nowMs <= expectedDamage + settings.fallDamageGraceMs) {
+            double fall = data.getNoFallALandFall();
+            if (fall >= settings.minDrop) return true;
+        }
+
+        return isInFallArcWindow(data, nowMs, settings);
+    }
+
     /** True while a tracked fall arc is still descending with meaningful drop. */
     private static boolean isActiveLegitFallDescent(PlayerData data, Settings settings) {
         if (data == null || settings == null || data.getFallArcStartMs() <= 0L) return false;
@@ -180,7 +210,7 @@ public final class FallArcTracker {
         if (!isInFallArcWindow(plugin, data, nowMs)) return false;
 
         double drop = Math.max(0.0D, data.getFallArcPeakY() - data.getFallArcMinY());
-        double minDrop = plugin.getConfig().getDouble("movement-analysis.fall-arc-min-drop", 1.25D);
+        double minDrop = plugin.getConfig().getDouble("movement-analysis.fall-arc-min-drop", 0.75D);
         World world = resolveWorld(data);
         boolean noFallDamage = world != null && !NoFallUtil.isFallDamageEnabled(plugin, world);
         if (drop < minDrop * (noFallDamage ? 0.4D : 1.0D)) return false;

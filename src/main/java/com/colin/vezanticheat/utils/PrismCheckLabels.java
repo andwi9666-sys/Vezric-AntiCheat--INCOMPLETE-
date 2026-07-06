@@ -25,7 +25,6 @@ public final class PrismCheckLabels {
                 || "PrismSetbackAccept".equals(internalName)) {
             return "Invalid protocol";
         }
-        if (internalName.startsWith("PrismInteractReach")) return "Fighting suspiciously";
         if (tier == CheckTier.CHARACTERISTICS) {
             if (internalName.contains("SilentAim") || internalName.startsWith("CharAim")) return "Heuristics";
             if (internalName.startsWith("CharCriticals")) return "Heuristics";

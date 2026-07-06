@@ -51,6 +51,10 @@ public final class SetbackUtil {
         }
 
         data.getPredictionState().setLastValidGroundSetbackLocation(to.clone(), nowMs);
+        // GrimAC afterTickFriction: remember the post-tick (friction-applied) velocity at this valid anchor
+        // so a setback can re-apply the player's momentum instead of zeroing it.
+        com.colin.vezanticheat.movement.SimulationResult sim = data.getLastSimulationResult();
+        data.getPredictionState().setLastKnownGoodVelocity(sim == null ? null : sim.nextMotion);
     }
 
     /** Schedules a main-thread teleport to the resolved setback anchor. */

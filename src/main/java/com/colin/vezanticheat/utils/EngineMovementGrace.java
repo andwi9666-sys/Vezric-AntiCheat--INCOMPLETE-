@@ -26,6 +26,7 @@ public final class EngineMovementGrace {
         if (data.isVelocityExempt() || data.isTeleportExempt() || data.isPotionExempt()) return true;
         if (data.isBlockStateExempt()) return true;
         if (data.isEatMovementGrace() || ItemUseMovementUtil.suppressesMovementFlags(data, System.currentTimeMillis())) return true;
+        if (FallArcTracker.shouldSuppressLegitFallMovement(plugin, data, nowMs)) return true;
 
         if (isKnockbackOrCombatGrace(plugin, data, nowMs)) return true;
         if (isLikelyLegitBridgeMovement(plugin, p, data, er, nowMs)) return true;
@@ -34,7 +35,7 @@ public final class EngineMovementGrace {
         if (NoFallUtil.shouldExemptFallDamagePrediction(plugin, p, data, er, nowMs)) return true;
 
         if (MovementContextAnalyzer.isLikelyLegitSprintJump(plugin, p, data)) return true;
-        if (isLikelyLegitJumpArc(plugin, p, data, er, nowMs)) return true;
+        if (MovementEnvelopeUtil.isLikelyVanillaJumpChain(plugin, p, data, er, nowMs, checkName)) return true;
 
         Vector actual = er.actual == null ? new Vector() : er.actual;
         double dy = actual.getY();
@@ -48,7 +49,8 @@ public final class EngineMovementGrace {
             return true;
         }
 
-        if (isLikelyLegitSpeedLocomotion(plugin, p, er, checkName)) {
+        if (MovementEnvelopeUtil.isLegalSpeedPotionGroundMovement(plugin, p, er, checkName)
+                || isLikelyLegitSpeedLocomotion(plugin, p, er, checkName)) {
             return true;
         }
 
@@ -161,6 +163,7 @@ public final class EngineMovementGrace {
         if (data.isVelocityExempt() || data.isTeleportExempt() || data.isPotionExempt()) return true;
         if (data.isBlockStateExempt()) return true;
         if (data.isEatMovementGrace() || ItemUseMovementUtil.suppressesMovementFlags(data, System.currentTimeMillis())) return true;
+        if (FallArcTracker.shouldSuppressLegitFallMovement(plugin, data, nowMs)) return true;
         if (isKnockbackOrCombatGrace(plugin, data, nowMs)) return true;
         if (isLikelyLegitBridgeMovement(plugin, p, data, er, nowMs)) return true;
 
@@ -178,7 +181,7 @@ public final class EngineMovementGrace {
             if (er.horizontalOffset <= maxH && ratio < 1.10D) return true;
         }
 
-        if (isLikelyLegitJumpArc(plugin, p, data, er, nowMs)) {
+        if (MovementEnvelopeUtil.isLikelyVanillaJumpChain(plugin, p, data, er, nowMs, cfg)) {
             if (SpeedPatternUtil.isYPortSlam(data, er)) return false;
             if (SpeedPatternUtil.horizontalRatio(er) >= 1.12D) return false;
             return true;
@@ -196,10 +199,6 @@ public final class EngineMovementGrace {
         if (PotionUtil.hasSpeedBoost(p) && p.isSprinting() && isLikelyLegitGroundLocomotion(er)) {
             double sprintSpeedCap = speedThr + PotionUtil.combinedSpeedOffsetAllowance(p) + 0.055D;
             if (er.horizontalOffset <= sprintSpeedCap) return true;
-            double ratio = SpeedPatternUtil.horizontalRatio(er);
-            double ratioCap = 1.12D + (PotionUtil.speedLevel(p) * 0.04D)
-                    + Math.max(0.0D, (p.getWalkSpeed() / 0.2F - 1.0F) * 0.08D);
-            if (ratio < ratioCap) return true;
         }
 
         if (er.onIce || er.onSlime) {
@@ -264,6 +263,7 @@ public final class EngineMovementGrace {
         if (er.knockbackTick || er.explosionTick) return true;
         if (data.isVelocityExempt() || data.isTeleportExempt() || data.isPotionExempt()) return true;
         if (isKnockbackOrCombatGrace(plugin, data, nowMs)) return true;
+        if (FallArcTracker.shouldSuppressLegitFallMovement(plugin, data, nowMs)) return true;
 
         if (!er.clientGround) return false;
 
@@ -279,12 +279,7 @@ public final class EngineMovementGrace {
 
         if (Math.abs(dy) <= minDy) return true;
 
-        if (dy < minDescentDy && FallArcTracker.isInFallArcWindow(plugin, data, nowMs)) {
-            org.bukkit.World world = resolveWorld(data);
-            if (world != null && NoFallUtil.isFallDamageEnabled(plugin, world)) {
-                return false;
-            }
-        } else if (FallArcTracker.isInFallArcWindow(plugin, data, nowMs)) {
+        if (FallArcTracker.isInFallArcWindow(plugin, data, nowMs)) {
             return true;
         }
 
@@ -326,11 +321,7 @@ public final class EngineMovementGrace {
 
         double sprintCap = speedThr + allowance + 0.06D;
         if (er.horizontalOffset <= sprintCap) return true;
-
-        double ratio = SpeedPatternUtil.horizontalRatio(er);
-        double ratioCap = 1.12D + (PotionUtil.speedLevel(p) * 0.04D)
-                + Math.max(0.0D, (p.getWalkSpeed() / 0.2F - 1.0F) * 0.08D);
-        return ratio < ratioCap;
+        return false;
     }
 
     /**
@@ -356,6 +347,9 @@ public final class EngineMovementGrace {
      */
     public static boolean isLikelyLegitJumpArc(VezAntiCheat plugin, Player p, PlayerData data,
                                                EngineResult er, long nowMs) {
+        if (MovementEnvelopeUtil.isLikelyVanillaJumpChain(plugin, p, data, er, nowMs, "PredictionSpeed")) {
+            return true;
+        }
         if (plugin == null || p == null || data == null || er == null) return false;
         if (er.knockbackTick || er.explosionTick || er.inWater || er.onClimbable || er.inWeb) return false;
         if (data.getLastJumpTime() <= 0L) return false;

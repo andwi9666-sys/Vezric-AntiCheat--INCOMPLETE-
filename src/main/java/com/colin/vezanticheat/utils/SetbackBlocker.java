@@ -21,6 +21,17 @@ public final class SetbackBlocker {
             return false;
         }
         if (!data.isPendingSetback()) return false;
+        // Transaction-confirmed acceptance (GrimAC): once the client acks a transaction sent after the
+        // setback teleport, the teleport has been processed — stop blocking. The position-distance check
+        // in onAcceptedPosition and the max-pending timeout below remain as fallbacks.
+        if (plugin.getConfig().getBoolean("prediction.setback.transaction-confirmed", true)
+                && data.getTransactionState().getLastSentSequence() >= 0L) {
+            long seq = data.getPendingSetbackTxSeq();
+            if (seq >= 0L && data.getTransactionState().getLastAckedSequence() >= seq) {
+                data.clearPendingSetback();
+                return false;
+            }
+        }
         long breakerWindow = plugin.getConfig().getLong("setback-blocker.circuit-breaker.window-ms", 2000L);
         long maxMs = Math.max(breakerWindow,
                 plugin.getConfig().getLong("setback-blocker.max-pending-ms", breakerWindow));
@@ -37,6 +48,8 @@ public final class SetbackBlocker {
         data.setPendingSetback(true);
         data.setPendingSetbackSinceMs(System.currentTimeMillis());
         data.setPendingSetbackTarget(target.clone());
+        // Anchor acceptance to the next transaction sent after this teleport (cleared once it acks).
+        data.setPendingSetbackTxSeq(data.getTransactionState().getLastSentSequence() + 1L);
     }
 
     public static void onAcceptedPosition(Player player, PlayerData data, Location packetLoc) {

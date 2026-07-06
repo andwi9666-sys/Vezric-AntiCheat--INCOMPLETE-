@@ -52,15 +52,9 @@ public final class PrismInteractionEvaluator {
             return InteractionResult.clean();
         }
 
-        double maxReach = CombatUtil.resolveEffectiveMaxReach(plugin, checkName);
-
-        PrismCombatSupport.ReachResult engineReach =
-                PrismCombatSupport.evaluateReach(plugin, null, p, data, maxReach, false);
-        PrismCombatSupport.ReachResult legacyReach =
-                PrismCombatSupport.evaluateReachLegacy(plugin, checkName, p, data, maxReach, 0.0D, false);
-
-        boolean outOfRange = engineReach.overReach || legacyReach.overReach;
-        double reach = Math.max(engineReach.reach, legacyReach.reach);
+        // Reach detection removed by request: PrismInteractionLegality no longer evaluates or flags
+        // over-reach. Hitbox, line-of-sight, stale-rotation, backtrack and lag-range stay unaffected.
+        boolean outOfRange = false;
 
         PrismCombatSupport.NoRotationResult staleRot =
                 PrismCombatSupport.evaluateNoRotationA(plugin, checkName, p, data, now);
@@ -106,10 +100,8 @@ public final class PrismInteractionEvaluator {
                 : LagrangeSignal.none();
 
         boolean hitboxPattern = hitbox.patternSuspicious;
-        boolean blatantReach = outOfRange && reach > maxReach + plugin.tierCfg().checkDouble(checkName, "blatantReachOver", 0.35D);
-        boolean blatant = blatantReach
-                || (outOfSight && outOfRange)
-                || (outOfSight && packetRay.angle > plugin.tierCfg().checkDouble(checkName, "blatantAngle", 35.0D))
+        boolean blatant =
+                (outOfSight && packetRay.angle > plugin.tierCfg().checkDouble(checkName, "blatantAngle", 35.0D))
                 || (silentRot.suspicious && hitboxMiss);
 
         int signals = 0;
@@ -120,10 +112,13 @@ public final class PrismInteractionEvaluator {
         if (backtrack.evidence) signals++;
         if (lagrange.evidence) signals++;
 
+        // During an active spam-click engagement the lag-comp rewind is too noisy to trust a single
+        // hitbox ray-miss; silently cancelling it dropped legit ~2.8-block edge hits with no alert.
+        // Mid-fight, only a blatant out-of-sight miss or the sustained hitbox PATTERN may cancel.
+        boolean activePvp = CombatContextAnalyzer.isActivePvpEngagement(data, now);
         boolean shouldCancel = blatant
-                || outOfRange
                 || (outOfSight && !HitboxUtil.isRecentHeadFlick(plugin, data, now, checkName))
-                || (hitboxMiss && hitbox.missDistance > plugin.tierCfg().checkDouble(checkName, "cancelMissDistance", 0.10D));
+                || (hitboxMiss && !activePvp && hitbox.missDistance > plugin.tierCfg().checkDouble(checkName, "cancelMissDistance", 0.10D));
 
         double confidence = blatant ? 1.0D
                 : hitboxPattern ? 0.85D
@@ -135,7 +130,6 @@ public final class PrismInteractionEvaluator {
                 staleRotation, backtrack.evidence, lagrange.evidence);
 
         String debug = label
-                + " reach=" + round(reach) + "/" + round(maxReach)
                 + " ray=" + packetRay.rayMiss
                 + " hbMiss=" + hitboxMiss
                 + " hbPat=" + hitboxPattern
@@ -290,7 +284,7 @@ public final class PrismInteractionEvaluator {
                 plugin.tierCfg().checkLong(checkName, "backtrackMaxRewindMs", 190L)
         );
 
-        double max = CombatUtil.resolveEffectiveMaxReach(plugin, checkName);
+        double max = CombatUtil.resolveEffectiveMaxReach(plugin, checkName, p, data);
         double currentSlack = plugin.tierCfg().checkDouble(checkName, "backtrackCurrentSlack", 0.18D);
         double historicalSlack = plugin.tierCfg().checkDouble(checkName, "backtrackHistoricalSlack", 0.10D);
         long minExcessRewindMs = plugin.tierCfg().checkLong(checkName, "backtrackMinExcessMs", 45L);

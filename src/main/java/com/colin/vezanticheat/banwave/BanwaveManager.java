@@ -25,6 +25,8 @@ public class BanwaveManager {
     private YamlConfiguration yml;
     private final Map<UUID, Entry> entries = new LinkedHashMap<UUID, Entry>();
     private final Random random = new Random();
+    private final java.util.concurrent.atomic.AtomicBoolean savePending =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
     public BanwaveManager(VezAntiCheat plugin) {
         this.plugin = plugin;
@@ -69,7 +71,7 @@ public class BanwaveManager {
         }
     }
 
-    private void save() {
+    private synchronized void save() {
         yml.set("entries", null);
         for (Entry entry : entries.values()) {
             String base = "entries." + entry.uuid.toString();
@@ -88,6 +90,41 @@ public class BanwaveManager {
             plugin.getLogger().log(Level.WARNING,
                     "BanwaveManager: failed to save banwave.yml: " + ex.getMessage(), ex);
         }
+    }
+
+    /**
+     * Persists banwave.yml without blocking disk I/O on a Netty thread —
+     * queueAuto() is reached from check flag paths. Coalesces into one save per tick.
+     */
+    private void scheduleSave() {
+        if (org.bukkit.Bukkit.isPrimaryThread()) {
+            save();
+            return;
+        }
+        if (!savePending.compareAndSet(false, true)) return;
+        com.colin.vezanticheat.utils.MainThread.run(plugin, new Runnable() {
+            @Override
+            public void run() {
+                savePending.set(false);
+                save();
+            }
+        });
+    }
+
+    /** Flushes pending state to disk. Call from plugin onDisable. */
+    public void flush() {
+        save();
+    }
+
+    /**
+     * Re-queues an entry to execute after a delay — used by the punishment lag gate
+     * so a low-TPS deferral is retried instead of silently dropped.
+     */
+    public synchronized void requeueWithDelay(Entry entry, long delayMs) {
+        if (entry == null || entry.getUuid() == null) return;
+        entry.executeAt = System.currentTimeMillis() + Math.max(0L, delayMs);
+        entries.put(entry.getUuid(), entry);
+        scheduleSave();
     }
 
     public void startAutoTask() {
@@ -158,12 +195,12 @@ public class BanwaveManager {
             if (entry.executeAt < existing.executeAt) {
                 existing.executeAt = entry.executeAt;
             }
-            save();
+            scheduleSave();
             return false;
         }
 
         entries.put(entry.uuid, entry);
-        save();
+        scheduleSave();
         return true;
     }
 
@@ -172,7 +209,7 @@ public class BanwaveManager {
         OfflinePlayer op = Bukkit.getOfflinePlayer(name);
         if (op == null || op.getUniqueId() == null) return false;
         boolean removed = entries.remove(op.getUniqueId()) != null;
-        if (removed) save();
+        if (removed) scheduleSave();
         return removed;
     }
 
@@ -193,13 +230,13 @@ public class BanwaveManager {
     public synchronized boolean removeUuid(UUID uuid) {
         if (uuid == null) return false;
         boolean removed = entries.remove(uuid) != null;
-        if (removed) save();
+        if (removed) scheduleSave();
         return removed;
     }
 
     public synchronized void clear() {
         entries.clear();
-        save();
+        scheduleSave();
     }
 
     public synchronized int size() {
@@ -236,7 +273,7 @@ public class BanwaveManager {
         }
 
         if (processed > 0) {
-            save();
+            scheduleSave();
         }
         return processed;
     }

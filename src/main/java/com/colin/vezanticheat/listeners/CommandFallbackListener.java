@@ -56,7 +56,7 @@ public final class CommandFallbackListener implements Listener {
     }
 
     private boolean dispatch(String root, org.bukkit.command.CommandSender sender, String[] args) {
-        if ("vez".equals(root) || "watchdog".equals(root) || "wd".equals(root)) {
+        if ("perplexion".equals(root) || "pe".equals(root) || "vez".equals(root)) {
             vezCommand.onCommand(sender, null, root, args);
             return true;
         }
@@ -81,7 +81,7 @@ public final class CommandFallbackListener implements Listener {
 
         String rootToken = trimmed.split("\\s+", 2)[0];
         rootToken = stripNamespace(rootToken).toLowerCase();
-        if (!"vez".equals(rootToken) && !"watchdog".equals(rootToken) && !"wd".equals(rootToken)
+        if (!"perplexion".equals(rootToken) && !"pe".equals(rootToken) && !"vez".equals(rootToken)
                 && !"alerts".equals(rootToken) && !"banwave".equals(rootToken) && !"flags".equals(rootToken)) {
             return null;
         }

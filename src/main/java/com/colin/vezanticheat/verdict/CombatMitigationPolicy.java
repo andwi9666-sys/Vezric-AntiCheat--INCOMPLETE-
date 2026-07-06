@@ -30,6 +30,7 @@ public final class CombatMitigationPolicy {
 
     private static boolean isCombatPlayerHitCheckRegistry(String checkName) {
         if ("CharSilentAim".equals(checkName)) return true;
+        if ("CharAimSensitivity".equals(checkName)) return true;
         if ("CharAimSnap".equals(checkName) || "CharAimReset".equals(checkName)
                 || "CharAimCenter".equals(checkName) || "CharAimCorrelation".equals(checkName)) {
             return true;
@@ -61,6 +62,11 @@ public final class CombatMitigationPolicy {
                 plugin.diagnostics().record(attacker.getUniqueId(), checkName, "combat-drop-hit", reason);
             }
         }
+
+        // Combat setbacks removed by request EXCEPT for silent aim: only CharSilentAim may punitively
+        // teleport (setback) the attacker. Every other combat check still flags and may drop the hit
+        // above, but never setbacks the player.
+        if (!"CharSilentAim".equals(checkName)) return;
 
         if (!shouldPunitiveSetback(plugin, confidence)) return;
         if (!plugin.getConfig().getBoolean("combat-mitigation.punitive-setback", true)) return;
@@ -113,6 +119,11 @@ public final class CombatMitigationPolicy {
 
     private static boolean shouldPunitiveSetback(VezAntiCheat plugin, PrismMitigationPolicy.Confidence confidence) {
         String min = plugin.getConfig().getString("combat-mitigation.min-confidence-for-setback", "moderate");
+        return shouldPunitiveSetback(min, confidence);
+    }
+
+    static boolean shouldPunitiveSetback(String min, PrismMitigationPolicy.Confidence confidence) {
+        if (confidence == null) return false;
         if ("blatant".equalsIgnoreCase(min)) {
             return confidence == PrismMitigationPolicy.Confidence.BLATANT;
         }

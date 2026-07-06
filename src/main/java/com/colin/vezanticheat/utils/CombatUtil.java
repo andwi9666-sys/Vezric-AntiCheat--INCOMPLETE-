@@ -31,7 +31,21 @@ public final class CombatUtil {
         if (plugin == null) return VANILLA_BASE_REACH + VANILLA_HITBOX_EXPANSION;
         double maxReach = plugin.tierCfg().checkDouble(checkName, "maxReach", 3.1D);
         double reachMargin = plugin.tierCfg().checkDouble(checkName, "reachMargin", 0.0D);
-        return effectiveMaxReachFromValues(maxReach, reachMargin);
+        // Floor the effective reach so tight existing configs (e.g. maxReach 3.05) can't false-flag legit
+        // ~3.0-block hits plus lag/interpolation on moving targets. Configurable via the new key; blatant
+        // reach (above the floor) still flags. Distance math itself is correct (eye -> expanded hitbox).
+        double floor = plugin.getConfig().getDouble("combat-engine.min-reach-limit", 3.3D);
+        return Math.max(effectiveMaxReachFromValues(maxReach, reachMargin), floor);
+    }
+
+    /**
+     * Player-aware variant: adds the Bedrock reach margin (compat.bedrock.reach-extra)
+     * for Geyser players, whose translated positions carry extra slack.
+     */
+    public static double resolveEffectiveMaxReach(VezAntiCheat plugin, String checkName,
+                                                  Player player, PlayerData data) {
+        return resolveEffectiveMaxReach(plugin, checkName)
+                + ClientCompatUtil.bedrockReachExtra(plugin, player, data);
     }
 
     static double effectiveMaxReachFromValues(double maxReach, double reachMargin) {
@@ -69,6 +83,21 @@ public final class CombatUtil {
 
     public static Entity resolveTarget(Player attacker, UUID targetId) {
         if (attacker == null || targetId == null || attacker.getWorld() == null) return null;
+
+        // Combat checks call this from Netty threads; the per-tick EntityIndex snapshot
+        // is the only entity source safe to read there.
+        EntityIndex index = EntityIndex.active();
+        if (index != null) {
+            Entity indexed = index.getByUuid(targetId);
+            if (indexed != null && attacker.getWorld().equals(indexed.getWorld())) {
+                return indexed;
+            }
+        }
+
+        if (!Bukkit.isPrimaryThread()) {
+            // No index hit off-main: skip rather than scan live world collections.
+            return null;
+        }
 
         Player player = Bukkit.getPlayer(targetId);
         if (player != null && player.isOnline() && player.getWorld().equals(attacker.getWorld())) {

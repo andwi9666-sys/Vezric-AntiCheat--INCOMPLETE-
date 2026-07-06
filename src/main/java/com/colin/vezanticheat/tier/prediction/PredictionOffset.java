@@ -48,6 +48,13 @@ public final class PredictionOffset extends AbstractMovementTierCheck {
             return;
         }
 
+        if (FallArcTracker.shouldSuppressLegitFallMovement(plugin, data, nowMs)) {
+            data.setEngineOffsetAdvantage(Math.max(0.0D, data.getEngineOffsetAdvantage() * 0.65D));
+            data.clearPendingSetback();
+            cool(p, 0.45D);
+            return;
+        }
+
         Vector actual = result.actual == null ? new Vector() : result.actual;
         double dy = actual.getY();
         double distH = Math.hypot(actual.getX(), actual.getZ());

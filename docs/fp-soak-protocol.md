@@ -4,29 +4,29 @@ Run **after** [`staging-results.md`](staging-results.md) aggressive scenarios 1�
 
 ## Setup
 
-1. Deploy `VezAntiCheat-1.1.0.jar` with **aggressive** profile:
+1. Deploy `Perplexion-1.2.0.jar` with **aggressive** profile:
    ```
-   /vez profile aggressive
+   /perplexion profile aggressive
    ```
 2. Follow shadow → enable workflow in [`competitive-tuning.md`](competitive-tuning.md)
-3. Enable staff alerts: `/flags`, `/vez verbose on` for triage staff
+3. Enable staff alerts: `/flags`, `/perplexion verbose on` for triage staff
 4. Invite **competitive Pot/HCF PvP** players — sprint-jump, W-tap, blockhit, bridging, inventory, bow, jump-crit chains
 
 ## Track daily
 
 | Metric | How to measure |
 |--------|----------------|
-| False setbacks | Staff reports + `/vez trace <player>` |
-| False combat cancels | Combat staff alerts + `/vez combat` |
+| False setbacks | Staff reports + `/perplexion trace <player>` |
+| False combat cancels | Combat staff alerts + `/perplexion combat` |
 | Wrongful bans | Banwave queue review |
-| TPS complaints | `/vez status` + server TPS monitor |
+| TPS complaints | `/perplexion status` + server TPS monitor |
 
 ## Triage flow
 
-1. Confirm profile (`/vez status`)
-2. `/vez info <player>` — exemptions, VL, engine debug
-3. `/vez trace <player>` — DiagnosticsTracker entries
-4. If FP: switch check to shadow via `/vez tune <Check> shadow true`
+1. Confirm profile (`/perplexion status`)
+2. `/perplexion info <player>` — exemptions, VL, engine debug
+3. `/perplexion trace <player>` — DiagnosticsTracker entries
+4. If FP: switch check to shadow via `/perplexion tune <Check> shadow true`
 5. File issue with: ping, TPS, reproduction steps, debug line
 
 ## Competitive PvP focus (Pot / HCF / UHC)

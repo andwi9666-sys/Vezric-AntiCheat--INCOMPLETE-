@@ -24,27 +24,27 @@ public final class VezAICommand {
         }
 
         if (args.length < 2) {
-            sender.sendMessage(color("&6[Vez AI] &eUsage: /vez ai <score|export|reload> [player]"));
+            sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &8AI &7&eUsage: /perplexion ai <score|export|reload> [player]"));
             return true;
         }
 
         String sub = args[1].toLowerCase();
         if (sub.equals("reload")) {
             if (plugin.riskScore() != null) plugin.riskScore().reload();
-            sender.sendMessage(color("&6[Vez AI] &aReloaded AI layer."));
+            sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &8AI &7&aReloaded AI layer."));
             return true;
         }
 
         if (sub.equals("export")) {
             File dir = plugin.evidence() == null ? null : plugin.evidence().getEvidenceDirectory();
-            sender.sendMessage(color("&6[Vez AI] &eEvidence directory: &f"
+            sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &8AI &7&eEvidence directory: &f"
                     + (dir == null ? "unavailable" : dir.getAbsolutePath())));
             return true;
         }
 
         if (sub.equals("score")) {
             if (args.length < 3) {
-                sender.sendMessage(color("&6[Vez AI] &eUsage: /vez ai score <player>"));
+                sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &8AI &7&eUsage: /perplexion ai score <player>"));
                 return true;
             }
             Player target = Bukkit.getPlayer(args[2]);
@@ -55,12 +55,12 @@ public final class VezAICommand {
             double score = plugin.riskScore() == null ? 0.0D : plugin.riskScore().getScore(target.getUniqueId());
             PlayerData data = plugin.data().get(target);
             int totalVl = data == null ? 0 : data.getTotalVl();
-            sender.sendMessage(color("&6[Vez AI] &e" + target.getName()
+            sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &8AI &7&e" + target.getName()
                     + " &7risk=&f" + round2(score) + " &7totalVL=&f" + totalVl));
             return true;
         }
 
-        sender.sendMessage(color("&6[Vez AI] &eUnknown subcommand."));
+        sender.sendMessage(color("&0&l[PE&7RPLEX&8ION] &8AI &7&eUnknown subcommand."));
         return true;
     }
 

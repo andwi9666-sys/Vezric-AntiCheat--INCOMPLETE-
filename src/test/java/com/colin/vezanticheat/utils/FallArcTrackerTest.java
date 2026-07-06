@@ -83,6 +83,25 @@ public class FallArcTrackerTest {
         assertTrue(data.getFallArcStartMs() > 0L);
     }
 
+    @Test
+    public void pendingFallDamageSuppressesPredictionMovement() {
+        PlayerData data = new PlayerData(UUID.randomUUID());
+        data.setNoFallALandAtMs(10_000L);
+        data.setNoFallALandFall(3.5D);
+        data.setNoFallAExpectedDamageAfterMs(10_180L);
+
+        assertTrue(FallArcTracker.shouldSuppressLegitFallMovement(data, 10_150L, SETTINGS));
+    }
+
+    @Test
+    public void recentFallDamageSuppressesPredictionMovement() {
+        PlayerData data = new PlayerData(UUID.randomUUID());
+        data.setLastFallDamageTime(20_000L);
+        data.setLastFallDamageAmount(2.0D);
+
+        assertTrue(FallArcTracker.shouldSuppressLegitFallMovement(data, 20_200L, SETTINGS));
+    }
+
     private static World mockWalkOffWorld(int groundY) {
         World world = Mockito.mock(World.class);
         Block air = Mockito.mock(Block.class);
